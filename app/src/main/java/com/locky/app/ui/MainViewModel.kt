@@ -16,12 +16,14 @@ import com.locky.app.data.InstalledApp
 import com.locky.app.data.InstalledAppsLoader
 import com.locky.app.security.BiometricUnlock
 import com.locky.app.service.AppWatcherService
+import com.locky.app.service.LockScreenActivity
 import com.locky.app.service.LockyRuntime
 import com.locky.app.service.UnlockState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -63,18 +65,6 @@ data class AppsUiState(
     val lockedCount: Int
         get() = installed.count { it.packageName in lockedPackages }
 }
-
-/** What the watcher is actually doing, as opposed to what is configured. */
-data class Diagnostics(
-    val accessibilityGranted: Boolean = false,
-    val overlayGranted: Boolean = false,
-    val isServiceConnected: Boolean = false,
-    val isOverlayAttached: Boolean = false,
-    val protectedAppCount: Int = 0,
-    val foregroundEventCount: Long = 0L,
-    val lastForegroundPackage: String? = null,
-    val watcherError: String? = null,
-)
 
 /**
  * State holder for the main screen.
@@ -261,34 +251,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Everything needed to tell "the lock is broken" apart from "the lock was
-     * never armed".
+     * The watcher's own view of the world, taken straight from the service.
      *
-     * The watcher is invisible from the outside: a service can be enabled,
-     * running, and still be gating nothing, with the app looking perfectly
-     * configured. Showing these numbers turns "it does not lock" from a guess
-     * into an observation.
+     * Deliberately not folded into a combined state with the database read. A
+     * `combine` only emits once every source has produced a value, so mixing the
+     * service status with the protected-app query meant a database that was slow
+     * or stalled left the whole panel showing its initial defaults — which read
+     * exactly like "nothing is running". Two independent sources cannot lie to
+     * each other that way.
      */
-    val diagnostics: StateFlow<Diagnostics> = combine(
-        setupState,
-        LockyRuntime.status,
-        repository.observeLockedApps(),
-    ) { setup, runtime, locked ->
-        Diagnostics(
-            accessibilityGranted = setup.isAccessibilityGranted,
-            overlayGranted = setup.isOverlayGranted,
-            isServiceConnected = runtime.isServiceConnected,
-            isOverlayAttached = runtime.isOverlayAttached,
-            protectedAppCount = locked.size,
-            foregroundEventCount = runtime.foregroundEventCount,
-            lastForegroundPackage = runtime.lastForegroundPackage,
-            watcherError = runtime.watcherError,
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Diagnostics())
+    val runtimeStatus: StateFlow<LockyRuntime.Status> = LockyRuntime.status
+
+    /**
+     * How many apps this screen believes are locked.
+     *
+     * Compared against the watcher's own count: if the watcher sees more than the
+     * list does, arming is working and only the display is stale, and vice versa.
+     */
+    val protectedCountInUi: StateFlow<Int> = repository.observeLockedApps()
+        .map { it.size }
+        .catch { emit(0) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     private val _testResult = MutableStateFlow<String?>(null)
 
-    /** Result of the most recent [testOverlay] attempt, shown under the button. */
+    /** Result of the most recent test attempt, shown under the buttons. */
     val testResult: StateFlow<String?> = _testResult
 
     /**
@@ -308,6 +295,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         _testResult.value = null
         overlay.show(context.packageName, context.getString(R.string.diag_test_app_name))
+    }
+
+    /**
+     * Shows the fallback lock screen, bypassing the watcher entirely.
+     *
+     * The two self-tests are deliberately independent paths to the same [LockGate]
+     * composable. Neither this one nor [testOverlay] touches app detection, so
+     * together they bracket the problem: if this renders but a protected app opens
+     * freely, every remaining fault is in detection; if neither renders, the lock
+     * UI itself is at fault and detection is irrelevant.
+     */
+    fun testFullScreenLock() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, LockScreenActivity::class.java)
+            .putExtra(
+                LockScreenActivity.EXTRA_PACKAGE_NAME,
+                context.packageName,
+            )
+            .putExtra(
+                LockScreenActivity.EXTRA_LABEL,
+                context.getString(R.string.diag_test_app_name),
+            )
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+            .onFailure { _testResult.value = it.message ?: it.javaClass.simpleName }
     }
 
     companion object {

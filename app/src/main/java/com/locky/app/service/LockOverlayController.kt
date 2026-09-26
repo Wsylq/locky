@@ -217,7 +217,11 @@ class LockOverlayController(private val context: Context) {
                 hide()
             },
             onUseBiometrics = {
-                BiometricHostActivity.launch(context, current.packageName)
+                BiometricHostActivity.launch(
+                    context = context,
+                    packageName = current.packageName,
+                    appLabel = current.appLabel,
+                )
             },
         )
     }

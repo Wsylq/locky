@@ -58,10 +58,18 @@ class BiometricHostActivity : FragmentActivity() {
         private const val EXTRA_PACKAGE_NAME = "com.locky.app.extra.BIO_PACKAGE_NAME"
         private const val EXTRA_LABEL = "com.locky.app.extra.BIO_LABEL"
 
-        fun launch(context: Context, packageName: String) {
+        /**
+         * Shows the system prompt, with the app's name in the subtitle.
+         *
+         * The label is passed separately because the caller has it already resolved
+         * and cached: resolving it again from the package manager would put a binder
+         * call on the path between the user tapping "biometrics" and the prompt
+         * appearing, and would show a raw package name in the prompt.
+         */
+        fun launch(context: Context, packageName: String, appLabel: String) {
             val intent = Intent(context, BiometricHostActivity::class.java)
                 .putExtra(EXTRA_PACKAGE_NAME, packageName)
-                .putExtra(EXTRA_LABEL, packageName)
+                .putExtra(EXTRA_LABEL, appLabel)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { context.startActivity(intent) }
         }

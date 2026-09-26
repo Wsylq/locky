@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.locky.app.R
+import com.locky.app.service.LockyRuntime
 
 /**
  * Live view of whether the lock is actually working.
@@ -27,19 +28,26 @@ import com.locky.app.R
  * This exists because every other signal in the app is a configuration setting,
  * and configuration is not the same as behaviour. Each permission can be granted,
  * the checklist can be fully ticked, and the lock can still be doing nothing —
- * which looks identical to a working app from the outside. Reading these four
- * values tells you which half is broken:
+ * which looks identical to a working app from the outside. Reading these values
+ * tells you which half is broken:
  *
- * - Service not running  → nothing is watching app launches at all
- * - Service running, 0 protected apps → nothing has been armed
- * - Events at 0 → the service is alive but is not receiving app launches
- * - Events counting, still unlocked → the failure is in the lock window itself
+ * - Watcher not running → nothing is watching app launches at all
+ * - Watcher running, nothing armed → nothing has been switched on in the list
+ * - App launches at 0 → the watcher is alive but is not being told about opens
+ * - App launches counting, still unlocked → the fault is in the lock window
+ *
+ * The two app counts are reported separately on purpose. One is the watcher's own
+ * cache and the other is what this screen has in its list, read independently. If
+ * they disagree, arming is working and only one of the two views is stale — a
+ * distinction that a single combined number would hide.
  */
 @Composable
 fun DiagnosticsPanel(
-    diagnostics: Diagnostics,
+    runtime: LockyRuntime.Status,
+    protectedCountInUi: Int,
     testResult: String?,
-    onTest: () -> Unit,
+    onTestOverlay: () -> Unit,
+    onTestFullScreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -60,31 +68,37 @@ fun DiagnosticsPanel(
             StatusLine(
                 label = stringResource(R.string.diag_service),
                 value = stringResource(
-                    if (diagnostics.isServiceConnected) {
+                    if (runtime.isServiceConnected) {
                         R.string.diag_running
                     } else {
                         R.string.diag_stopped
                     },
                 ),
-                isGood = diagnostics.isServiceConnected,
+                isGood = runtime.isServiceConnected,
             )
 
             StatusLine(
                 label = stringResource(R.string.diag_protected),
-                value = diagnostics.protectedAppCount.toString(),
-                isGood = diagnostics.protectedAppCount > 0,
+                value = runtime.protectedAppCount.toString(),
+                isGood = runtime.protectedAppCount > 0,
+            )
+
+            StatusLine(
+                label = stringResource(R.string.diag_protected_in_ui),
+                value = protectedCountInUi.toString(),
+                isGood = protectedCountInUi > 0,
             )
 
             StatusLine(
                 label = stringResource(R.string.diag_events),
-                value = diagnostics.foregroundEventCount.toString(),
-                isGood = diagnostics.foregroundEventCount > 0,
+                value = runtime.foregroundEventCount.toString(),
+                isGood = runtime.foregroundEventCount > 0,
             )
 
             StatusLine(
                 label = stringResource(R.string.diag_overlay),
                 value = stringResource(
-                    if (diagnostics.isOverlayAttached) {
+                    if (runtime.isOverlayAttached) {
                         R.string.diag_ready
                     } else {
                         R.string.diag_unavailable
@@ -95,22 +109,22 @@ fun DiagnosticsPanel(
                 isGood = true,
             )
 
-            if (diagnostics.watcherError != null) {
+            if (runtime.watcherError != null) {
                 Text(
                     text = stringResource(
                         R.string.diag_watcher_error,
-                        diagnostics.watcherError,
+                        runtime.watcherError,
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
 
-            if (diagnostics.lastForegroundPackage != null) {
+            if (runtime.lastForegroundPackage != null) {
                 Text(
                     text = stringResource(
                         R.string.diag_last_seen,
-                        diagnostics.lastForegroundPackage,
+                        runtime.lastForegroundPackage,
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     fontFamily = FontFamily.Monospace,
@@ -118,10 +132,40 @@ fun DiagnosticsPanel(
                 )
             }
 
+            Text(
+                text = stringResource(R.string.diag_tests_help),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             Spacer(Modifier.size(4.dp))
 
-            OutlinedButton(onClick = onTest, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.diag_test_button))
+            // Both reach the same composable by different routes: one through the
+            // overlay window, one through an activity. Neither involves detecting
+            // an app, so what they render says nothing about detection and that is
+            // the point — it tells the two faults apart without any logcat.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onTestOverlay,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = stringResource(R.string.diag_test_overlay),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                OutlinedButton(
+                    onClick = onTestFullScreen,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = stringResource(R.string.diag_test_full_screen),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
 
             if (testResult != null) {

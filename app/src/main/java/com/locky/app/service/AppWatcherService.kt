@@ -61,8 +61,20 @@ class AppWatcherService : AccessibilityService() {
 
     private lateinit var repository: AppRepository
     private lateinit var unlockState: UnlockState
-    private lateinit var overlay: LockOverlayController
     private lateinit var appsLoader: InstalledAppsLoader
+
+    /**
+     * The overlay window for this service instance, or null when there is none.
+     *
+     * Nullable rather than `lateinit` on purpose. It genuinely does not exist when
+     * the overlay permission is refused or the window cannot be added, and the
+     * event callback still runs in that case — a `lateinit` field would throw
+     * `UninitializedPropertyAccessException` there, and Android swallows exceptions
+     * from `onAccessibilityEvent`, so the lock would silently gate nothing while
+     * reporting itself as healthy. Every use below therefore null-checks.
+     */
+    @Volatile
+    private var overlay: LockOverlayController? = null
 
     /**
      * Protected apps with their labels and icons already resolved.
@@ -86,7 +98,7 @@ class AppWatcherService : AccessibilityService() {
     private var unprotectedForeground = 0
 
     private val isReady: Boolean
-        get() = this::repository.isInitialized
+        get() = this::repository.isInitialized && this::unlockState.isInitialized
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -104,16 +116,24 @@ class AppWatcherService : AccessibilityService() {
             LockyRuntime.onWatcherError("Could not read the protected app list")
             return
         }
-        unlockState = UnlockState.get(this)
+        unlockState = runCatching { UnlockState.get(this) }.getOrElse { e ->
+            Log.e(TAG, "cannot open the unlock state store", e)
+            LockyRuntime.onWatcherError("Could not read the unlock state")
+            return
+        }
         appsLoader = InstalledAppsLoader(this)
 
-        activeOverlay = runCatching {
+        // Assigned to both the instance field the event callback reads and the
+        // companion field the biometric host reads. They must be the same object.
+        val created = runCatching {
             LockOverlayController(this).also { it.attach() }
         }.getOrElse { e ->
             Log.e(TAG, "overlay could not be created; using the full screen gate", e)
             null
         }
-        val overlayAttached = activeOverlay?.isAttached == true
+        overlay = created
+        activeOverlay = created
+        val overlayAttached = created?.isAttached == true
         Log.i(TAG, "overlay attached=$overlayAttached")
         LockyRuntime.onServiceConnected(overlayAttached = overlayAttached)
 
@@ -153,6 +173,7 @@ class AppWatcherService : AccessibilityService() {
         if (packageName == this.packageName) return
 
         val target = protectedApps[packageName]
+        val window = overlay
 
         if (target == null) {
             // Nothing to gate. This is the normal case for the launcher, the
@@ -170,7 +191,7 @@ class AppWatcherService : AccessibilityService() {
             // The overlay is a system window and does not follow the foreground app
             // on its own, so it has to be dismissed explicitly or Locky ends up
             // covering the home screen.
-            if (overlay.isShowing) overlay.hide()
+            if (window?.isShowing == true) window.hide()
             if (fallbackActive) {
                 fallbackActive = false
                 releaseChallenge()
@@ -187,17 +208,17 @@ class AppWatcherService : AccessibilityService() {
 
         // Already gating this app: just retitle for the new foreground app rather
         // than stacking a second challenge.
-        if (overlay.isShowing) {
-            overlay.show(target.packageName, target.label)
+        if (window?.isShowing == true) {
+            window.show(target.packageName, target.label)
             return
         }
 
         if (!claimChallenge()) return
 
-        if (overlay.isAttached) {
+        if (window?.isAttached == true) {
             // The fast path: the window already exists and is attached, so this
             // is only a visibility change.
-            overlay.show(target.packageName, target.label)
+            window.show(target.packageName, target.label)
         } else {
             // No overlay permission. Fall back to a real activity so the app is
             // still locked, accepting the slower transition.
@@ -241,10 +262,9 @@ class AppWatcherService : AccessibilityService() {
      * screen whose owner no longer exists.
      */
     private fun teardown() {
-        if (this::overlay.isInitialized) {
-            activeOverlay = null
-            overlay.detach()
-        }
+        overlay?.detach()
+        overlay = null
+        activeOverlay = null
         releaseChallenge()
         scope.cancel()
         LockyRuntime.onServiceDisconnected()
