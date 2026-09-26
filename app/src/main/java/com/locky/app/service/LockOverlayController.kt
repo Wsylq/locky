@@ -217,21 +217,21 @@ private class OverlayLifecycleOwner :
     ViewModelStoreOwner,
     SavedStateRegistryOwner {
 
-    private val lifecycleRegistry = LifecycleRegistry(this)
-    private val viewModelStore = ViewModelStore()
-    private val savedStateController = SavedStateRegistryController.create(this)
+    private val registry = LifecycleRegistry(this)
+    private val store = ViewModelStore()
+    private val savedState = SavedStateRegistryController.create(this)
 
-    override val lifecycle: Lifecycle get() = lifecycleRegistry
-    override val viewModelStore: ViewModelStore get() = viewModelStore
-    override val savedStateRegistry: SavedStateRegistry get() = savedStateController.savedStateRegistry
+    override val lifecycle: Lifecycle get() = registry
+    override val viewModelStore: ViewModelStore get() = store
+    override val savedStateRegistry: SavedStateRegistry get() = savedState.savedStateRegistry
 
     fun onCreate() {
-        savedStateController.performRestore(null)
-        lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+        savedState.performRestore(null)
+        registry.currentState = Lifecycle.State.RESUMED
     }
 
     fun onDestroy() {
-        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
-        viewModelStore.clear()
+        registry.currentState = Lifecycle.State.DESTROYED
+        store.clear()
     }
 }
