@@ -62,20 +62,32 @@ class LockyAdminReceiver : DeviceAdminReceiver() {
         private fun componentName(context: Context): ComponentName =
             ComponentName(context, LockyAdminReceiver::class.java)
 
-        // These constants live on DevicePolicyManager. Inherited statics are not
-        // in scope inside a companion object, so they must be qualified.
-        /** Intent that opens the system prompt to grant device admin. */
+        /**
+         * Intent that opens the system prompt to grant device admin.
+         *
+         * Both constants live on [DevicePolicyManager]. Inherited statics are not
+         * in scope inside a companion object, so they must be qualified.
+         */
         fun enableIntent(context: Context): Intent =
             Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).putExtra(
                 DevicePolicyManager.EXTRA_DEVICE_ADMIN,
                 componentName(context),
             )
 
-        /** Intent that opens the system prompt to revoke device admin. */
-        fun disableIntent(context: Context): Intent =
-            Intent(DevicePolicyManager.ACTION_REMOVE_DEVICE_ADMIN).putExtra(
-                DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-                componentName(context),
-            )
+        /**
+         * Intent that opens the system prompt to revoke device admin.
+         *
+         * There is no ACTION_REMOVE_DEVICE_ADMIN constant; the documented way to
+         * revoke is the same add-device-admin intent pointed at a receiver that is
+         * no longer in the manifest, so the platform shows the deactivate prompt.
+         * Since Locky does still declare its receiver, the reliable route is
+         * DevicePolicyManager#removeActiveAdmin, which needs no intent at all.
+         */
+        fun revokeActiveAdmin(context: Context): Boolean {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE)
+                    as? DevicePolicyManager
+            val admin = componentName(context)
+            return dpm?.removeActiveAdmin(admin) == true
+        }
     }
 }
