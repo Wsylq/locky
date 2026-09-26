@@ -1,6 +1,7 @@
 package com.locky.app.ui
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -147,9 +148,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         setup: SetupState,
         runtime: LockyRuntime.Status,
     ): LockyRuntime.Problem? = when {
-        // Say nothing: the checklist already shows the missing grant, and a
-        // warning on top of it is just noise.
-        !setup.isAccessibilityGranted -> null
+        // The one thing that must be nagged about. Android switches the service
+        // off on every update and reinstall, and until it is back on nothing else
+        // in the app matters.
+        !setup.isAccessibilityGranted -> LockyRuntime.Problem.SERVICE_NOT_ENABLED
 
         runtime.isServiceConnected && runtime.protectedAppCount == 0 ->
             LockyRuntime.Problem.NO_PROTECTED_APPS
@@ -218,6 +220,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun accessibilityIntent(): Intent =
         Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * Settings screens to try, best first, for switching the service back on.
+     *
+     * Android buries app accessibility services under Accessibility > Installed
+     * services, and lists this one as "Locky app lock" rather than "Locky", so
+     * users sent to the generic list routinely cannot find it and conclude
+     * nothing is wrong. The per-service screen is tried first because it lands
+     * directly on the switch.
+     *
+     * That action is undocumented and absent on some devices, so the generic
+     * list is kept as a fallback rather than resolved up front — package
+     * visibility rules on Android 11+ make `resolveActivity` unreliable for
+     * Settings targets, and would silently discard the good intent.
+     */
+    fun accessibilitySettingsIntents(): List<Intent> {
+        val context = getApplication<Application>()
+        val component = ComponentName(context, AppWatcherService::class.java)
+        return listOf(
+            Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                .putExtra("android.intent.extra.COMPONENT_NAME", component)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            accessibilityIntent(),
+        )
+    }
 
     /**
      * Intent that opens the "display over other apps" toggle.

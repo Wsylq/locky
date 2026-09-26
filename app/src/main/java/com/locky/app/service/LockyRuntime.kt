@@ -57,6 +57,9 @@ object LockyRuntime {
     }
 
     enum class Problem {
+        /** The service has not been switched on in Settings. */
+        SERVICE_NOT_ENABLED,
+
         /** The service is enabled in Settings but not actually running. */
         SERVICE_STOPPED,
 

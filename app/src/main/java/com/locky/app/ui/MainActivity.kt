@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -51,7 +52,9 @@ class MainActivity : FragmentActivity() {
                     viewModel = viewModel,
                     onRequestOverlay = { startSafely(viewModel.overlayPermissionIntent()) },
                     onRequestDeviceAdmin = { startSafely(viewModel.deviceAdminIntent()) },
-                    onRequestAccessibility = { startSafely(viewModel.accessibilityIntent()) },
+                    onRequestAccessibility = {
+                        startFirst(viewModel.accessibilitySettingsIntents())
+                    },
                 )
             }
         }
@@ -66,6 +69,16 @@ class MainActivity : FragmentActivity() {
 
     private fun startSafely(intent: Intent) {
         runCatching { startActivity(intent) }
+    }
+
+    /**
+     * Starts the first intent that resolves, so callers can offer a preferred
+     * screen without having to know in advance which devices support it.
+     */
+    private fun startFirst(intents: List<Intent>) {
+        for (intent in intents) {
+            if (runCatching { startActivity(intent) }.isSuccess) return
+        }
     }
 }
 
@@ -92,7 +105,20 @@ private fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.apps_title)) },
+                title = {
+                    Column {
+                        Text(stringResource(R.string.apps_title))
+                        Text(
+                            text = stringResource(
+                                R.string.apps_locked_count,
+                                uiState.lockedCount,
+                                uiState.installed.size,
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = viewModel::lockAllNow) {
                         Icon(

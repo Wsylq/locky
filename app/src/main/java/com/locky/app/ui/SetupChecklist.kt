@@ -205,6 +205,9 @@ private fun RuntimeWarning(
             Spacer(Modifier.size(4.dp))
             Text(
                 text = when (problem) {
+                    LockyRuntime.Problem.SERVICE_NOT_ENABLED ->
+                        stringResource(R.string.warning_service_not_enabled)
+
                     LockyRuntime.Problem.SERVICE_STOPPED ->
                         stringResource(R.string.warning_service_stopped)
 
@@ -218,28 +221,19 @@ private fun RuntimeWarning(
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
 
-            // The service is listed under its own label in Settings, not under
-            // the app name, which is the single most likely reason someone cannot
-            // find it when told to go re-enable "Locky".
-            if (problem == LockyRuntime.Problem.SERVICE_STOPPED) {
+            // Both service problems are fixed in Settings, and both need the user
+            // to find a switch labelled "Locky app lock" rather than "Locky" —
+            // which is the most common reason this step gets abandoned.
+            val needsSettings = problem == LockyRuntime.Problem.SERVICE_NOT_ENABLED ||
+                problem == LockyRuntime.Problem.SERVICE_STOPPED
+
+            if (needsSettings) {
                 Spacer(Modifier.size(6.dp))
                 Text(
                     text = stringResource(
                         R.string.warning_find_service,
                         stringResource(R.string.accessibility_service_label),
                     ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-
-            // Only the stopped-service case is fixed in Settings. Telling someone
-            // to go re-enable an already-running service is worse than saying
-            // nothing at all.
-            if (problem == LockyRuntime.Problem.SERVICE_STOPPED) {
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    text = stringResource(R.string.warning_find_service),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
