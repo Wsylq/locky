@@ -72,6 +72,9 @@ dependencies {
     // BiometricPrompt is a fragment, so the hosting activities extend
     // FragmentActivity (a ComponentActivity subclass) and need fragment-ktx.
     implementation(libs.androidx.fragment.ktx)
+    // The lock overlay is a bare WindowManager view, so it has to supply its own
+    // saved-state owner for Compose to run in it.
+    implementation(libs.androidx.savedstate.ktx)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)

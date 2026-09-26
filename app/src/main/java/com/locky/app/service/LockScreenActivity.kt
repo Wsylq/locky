@@ -9,34 +9,34 @@ import androidx.fragment.app.FragmentActivity
 import com.locky.app.R
 import com.locky.app.security.AttemptLimiter
 import com.locky.app.security.BiometricUnlock
-import com.locky.app.ui.LockScreenRoute
+import com.locky.app.ui.LockGate
 import com.locky.app.ui.theme.LockyLockTheme
 
 /**
- * The PIN gate shown in front of a protected app.
+ * Fallback lock screen, used only when the "display over other apps" permission
+ * has been denied.
  *
- * It is a separate, non-exported activity on its own task affinity so that it can
- * cover the locked app without joining that app's task. On success the target
- * package is granted a grace period in [UnlockState] and this screen closes,
- * revealing the app underneath.
- *
- * It extends [FragmentActivity] so the platform [BiometricPrompt] can attach for
- * the biometric alternative to the PIN.
+ * The normal path is [LockOverlayController], which draws the same [LockGate]
+ * composable directly over the foreground app with no activity involved. This
+ * exists so that denying the overlay permission degrades to a slightly slower
+ * lock rather than to no lock at all.
  */
 class LockScreenActivity : FragmentActivity() {
 
     private val attemptLimiter = AttemptLimiter()
 
-    /** Empty until onCreate reads the intent; the lock screen is meaningless without it. */
     private var targetPackage: String = ""
     private var targetLabel: String = ""
+
+    /** Guards against releasing the watcher challenge after a successful unlock. */
+    private var didUnlock = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // A secure window keeps the PIN and the app's contents out of screenshots
-        // and the recents thumbnail.
+        // Keeps the PIN and the app's contents out of screenshots and the recents
+        // thumbnail.
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE,
@@ -53,25 +53,12 @@ class LockScreenActivity : FragmentActivity() {
 
         setContent {
             LockyLockTheme {
-                LockScreenRoute(
+                LockGate(
+                    packageName = targetPackage,
                     appLabel = targetLabel,
                     attemptLimiter = attemptLimiter,
-                    onUseBiometrics = {
-                        // Only offer biometrics when the device actually has a
-                        // secure lock screen configured.
-                        if (BiometricUnlock.isAvailable(this)) {
-                            BiometricUnlock.authenticate(
-                                activity = this,
-                                title = getString(R.string.pin_prompt_title),
-                                subtitle = getString(R.string.pin_prompt_subtitle, targetLabel),
-                                onSuccess = { onUnlocked(targetPackage) },
-                                onError = ::showMessage,
-                            )
-                        } else {
-                            showMessage(getString(R.string.biometrics_unavailable))
-                        }
-                    },
                     onUnlocked = ::onUnlocked,
+                    onUseBiometrics = ::promptForBiometrics,
                 )
             }
         }
@@ -79,20 +66,36 @@ class LockScreenActivity : FragmentActivity() {
 
     private fun onUnlocked(packageName: String) {
         if (packageName.isEmpty()) return
+        didUnlock = true
         UnlockState.get(this).grant(packageName)
         AppWatcherService.releaseChallenge()
         finish()
     }
 
-    private fun showMessage(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    override fun onDestroy() {
+        // If the user dismissed this screen without unlocking, the watcher's
+        // challenge has to be released or it will refuse to gate anything for the
+        // rest of the process's life.
+        if (!didUnlock) AppWatcherService.releaseChallenge()
+        super.onDestroy()
     }
 
-    override fun onDestroy() {
-        // If the screen is torn down without a successful unlock, make sure the
-        // watcher is able to challenge again.
-        if (isFinishing) AppWatcherService.releaseChallenge()
-        super.onDestroy()
+    private fun promptForBiometrics() {
+        if (BiometricUnlock.isAvailable(this)) {
+            BiometricUnlock.authenticate(
+                activity = this,
+                title = getString(R.string.pin_prompt_title),
+                subtitle = getString(R.string.pin_prompt_subtitle, targetLabel),
+                onSuccess = { onUnlocked(targetPackage) },
+                onError = ::showMessage,
+            )
+        } else {
+            showMessage(getString(R.string.biometrics_unavailable))
+        }
+    }
+
+    private fun showMessage(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     companion object {

@@ -6,14 +6,17 @@
     <!-- Setup / status -->
     <string name="protection_active">Locky is active</string>
     <string name="protection_inactive">Finish setup to start protecting apps</string>
-    <string name="setup_step_admin_title">Step 1 · Prevent uninstall</string>
+    <string name="setup_step_overlay_title">Step 1 · Show the lock instantly</string>
+    <string name="setup_step_overlay_body">Lets Locky draw the PIN screen straight on top of the app you open, so there is no transition and no glimpse of the app first. Without it, Locky falls back to a normal screen.</string>
+    <string name="setup_step_admin_title">Step 2 · Prevent uninstall</string>
     <string name="setup_step_admin_body">Device admin stops Locky from being removed, so the lock can\'t be bypassed. Locky never changes your lock screen, passwords, or data.</string>
-    <string name="setup_step_accessibility_title">Step 2 · Detect opened apps</string>
+    <string name="setup_step_accessibility_title">Step 3 · Detect opened apps</string>
     <string name="setup_step_accessibility_body">Android has no public API for detecting which app opens. The accessibility service does exactly that and nothing else.</string>
-    <string name="setup_step_pin_title">Step 3 · Set a PIN</string>
+    <string name="setup_step_pin_title">Step 4 · Set a PIN</string>
     <string name="setup_step_pin_body">A 4–8 digit PIN unlocks your protected apps. Locky stores only a salted PBKDF2 hash, never the PIN itself.</string>
 
     <string name="action_grant">Grant</string>
+    <string name="action_grant_optional">Grant (recommended)</string>
     <string name="action_enabled">Enabled</string>
     <string name="action_set_pin">Set PIN</string>
     <string name="action_change_pin">Change PIN</string>
@@ -22,6 +25,7 @@
     <string name="action_continue">Continue</string>
     <string name="action_unlock">Unlock</string>
     <string name="action_lock_now">Lock now</string>
+    <string name="settings_overlay">Display over other apps</string>
     <string name="action_use_biometrics">Use biometrics</string>
     <string name="biometrics_unavailable">Set up a screen lock on this device to unlock with biometrics.</string>
     <string name="action_retry">Try again</string>

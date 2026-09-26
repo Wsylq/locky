@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.locky.app.LockyApp
 import com.locky.app.R
 import com.locky.app.security.AttemptLimiter
-import com.locky.app.service.LockScreenActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -42,36 +41,33 @@ const val MAX_PIN_LENGTH = 8
 /** Shortest PIN the app accepts. */
 const val MIN_PIN_LENGTH = 4
 
+private const val AUTO_SUBMIT_DELAY_MILLIS = 120L
+
 /**
- * The lock screen's stateful route.
+ * The PIN gate, with all of its own state.
  *
- * Verification lives here rather than in the activity so the PIN field, the error
- * message and the busy state stay consistent: a wrong PIN always clears the
- * field, and a correct one always hands control back to the host.
+ * Shared by the overlay and the fallback lock-screen activity so both paths
+ * behave identically. Everything it needs is passed in explicitly rather than
+ * read from a host activity, which is what lets the same composable run inside a
+ * bare [android.view.WindowManager] window with no activity behind it.
  */
 @Composable
-fun LockScreenRoute(
+fun LockGate(
+    packageName: String,
     appLabel: String,
     attemptLimiter: AttemptLimiter,
-    onUseBiometrics: () -> Unit,
     onUnlocked: (String) -> Unit,
+    onUseBiometrics: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val activity = context as? LockScreenActivity
     val scope = rememberCoroutineScope()
 
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var isBusy by remember { mutableStateOf(false) }
 
-    // The activity is only absent in previews and tests; there is nothing to
-    // unlock in that case, so render the keypad inert rather than crashing.
-    val targetPackage = remember(activity) {
-        activity?.intent?.getStringExtra(LockScreenActivity.EXTRA_PACKAGE_NAME)
-    }
-
     fun submit() {
-        val host = activity ?: return
         if (isBusy) return
 
         if (attemptLimiter.isLockedOut) {
@@ -87,13 +83,13 @@ fun LockScreenRoute(
             // PBKDF2 at 120k iterations is intentionally slow, so it must not run
             // on the main thread or the keypad drops frames while it works.
             val correct = withContext(Dispatchers.Default) {
-                LockyApp.from(host).pinManager.verify(pin)
+                LockyApp.from(context).pinManager.verify(pin)
             }
             isBusy = false
 
             if (correct) {
                 attemptLimiter.onSuccess()
-                onUnlocked(targetPackage.orEmpty())
+                onUnlocked(packageName)
             } else {
                 attemptLimiter.onFailure()
                 pin = ""
@@ -102,7 +98,7 @@ fun LockScreenRoute(
         }
     }
 
-    // Auto-submit once the PIN reaches its natural length, which is what people
+    // Auto-submit once the PIN reaches a plausible length, which is what people
     // expect from a four-to-eight digit code.
     LaunchedEffect(pin) {
         if (pin.length >= MIN_PIN_LENGTH && !isBusy) {
@@ -111,14 +107,12 @@ fun LockScreenRoute(
         }
     }
 
-    // Tick down a visible cool-off so the user can see it expiring.
-    if (attemptLimiter.isLockedOut) {
-        LaunchedEffect(attemptLimiter.lockoutRemainingMillis) {
-            while (attemptLimiter.isLockedOut) {
-                delay(1_000)
-            }
-            error = null
+    // Count a visible cool-down down to zero so the user can see it expiring.
+    LaunchedEffect(attemptLimiter.isLockedOut) {
+        if (attemptLimiter.isLockedOut) {
+            while (attemptLimiter.isLockedOut) delay(1_000)
         }
+        error = null
     }
 
     PinEntryScreen(
@@ -233,6 +227,13 @@ fun PinEntryScreen(
         Spacer(Modifier.height(12.dp))
 
         TextButton(
+            onClick = onSubmit,
+            enabled = !isBusy && pin.length >= MIN_PIN_LENGTH && !isLockedOut,
+        ) {
+            Text(stringResource(R.string.action_unlock))
+        }
+
+        TextButton(
             onClick = onUseBiometrics,
             enabled = !isBusy && !isLockedOut,
         ) {
@@ -246,8 +247,6 @@ fun PinEntryScreen(
         }
     }
 }
-
-private const val AUTO_SUBMIT_DELAY_MILLIS = 120L
 
 private fun formatCountdown(millis: Long): String {
     val totalSeconds = (millis / 1000).coerceAtLeast(1)

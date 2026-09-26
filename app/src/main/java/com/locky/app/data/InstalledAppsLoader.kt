@@ -79,4 +79,18 @@ class InstalledAppsLoader(private val context: Context) {
     } catch (e: PackageManager.NameNotFoundException) {
         null
     }
+
+    /**
+     * The launcher icon for a package, resolved off the main thread.
+     *
+     * Cached ahead of time by the accessibility service so that gating a launch
+     * never has to call into the package manager on the critical path.
+     */
+    suspend fun iconFor(packageName: String): Drawable? = withContext(Dispatchers.IO) {
+        try {
+            context.packageManager.getApplicationIcon(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
+        }
+    }
 }

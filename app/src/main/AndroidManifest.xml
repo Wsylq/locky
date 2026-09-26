@@ -14,6 +14,13 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!--
+      The lock is drawn as a window on top of the foreground app rather than as a
+      separate screen, so the user never sees a transition. This is the permission
+      that allows it, and it is granted by the user in Settings, not at runtime.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- Resolves launchable apps on Android 11+ without QUERY_ALL_PACKAGES. -->
     <queries>
         <intent>
@@ -45,8 +52,9 @@
         </activity>
 
         <!--
-          The lock screen. singleInstance + noHistory keeps it out of the recents
-          list, and its own taskAffinity stops it from replacing the locked app.
+          Fallback gate, used only when the overlay permission has been denied.
+          The overlay is the normal path; this exists so denying one permission
+          does not leave the app with no protection at all.
         -->
         <activity
             android:name=".service.LockScreenActivity"
@@ -57,6 +65,16 @@
             android:taskAffinity="${applicationId}.lockscreen"
             android:theme="@style/Theme.Locky.LockScreen"
             android:windowSoftInputMode="adjustResize|stateVisible" />
+
+        <!-- Transparent host for the system biometric prompt; shows no UI itself. -->
+        <activity
+            android:name=".service.BiometricHostActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:noHistory="true"
+            android:taskAffinity="${applicationId}.biometric"
+            android:theme="@style/Theme.Locky.Transparent" />
 
         <!--
           Detects which app moves to the foreground and raises the lock screen.

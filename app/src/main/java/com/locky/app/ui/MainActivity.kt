@@ -49,6 +49,7 @@ class MainActivity : FragmentActivity() {
             LockyTheme {
                 MainScreen(
                     viewModel = viewModel,
+                    onRequestOverlay = { startSafely(viewModel.overlayPermissionIntent()) },
                     onRequestDeviceAdmin = { startSafely(viewModel.deviceAdminIntent()) },
                     onRequestAccessibility = { startSafely(viewModel.accessibilityIntent()) },
                 )
@@ -72,6 +73,7 @@ class MainActivity : FragmentActivity() {
 @Composable
 private fun MainScreen(
     viewModel: MainViewModel,
+    onRequestOverlay: () -> Unit,
     onRequestDeviceAdmin: () -> Unit,
     onRequestAccessibility: () -> Unit,
 ) {
@@ -118,6 +120,7 @@ private fun MainScreen(
             if (!setupState.isComplete) {
                 SetupChecklist(
                     state = setupState,
+                    onGrantOverlay = onRequestOverlay,
                     onGrantDeviceAdmin = onRequestDeviceAdmin,
                     onGrantAccessibility = onRequestAccessibility,
                     onSetPin = { showPinSetup = true },

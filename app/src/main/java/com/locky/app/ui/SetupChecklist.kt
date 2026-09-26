@@ -35,6 +35,7 @@ import com.locky.app.R
 @Composable
 fun SetupChecklist(
     state: SetupState,
+    onGrantOverlay: () -> Unit,
     onGrantDeviceAdmin: () -> Unit,
     onGrantAccessibility: () -> Unit,
     onSetPin: () -> Unit,
@@ -47,9 +48,21 @@ fun SetupChecklist(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = stringResource(R.string.protection_inactive),
+            text = if (state.isComplete) {
+                stringResource(R.string.protection_active)
+            } else {
+                stringResource(R.string.protection_inactive)
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        SetupStep(
+            title = stringResource(R.string.setup_step_overlay_title),
+            body = stringResource(R.string.setup_step_overlay_body),
+            isDone = state.isOverlayGranted,
+            isOptional = true,
+            onClick = onGrantOverlay,
         )
 
         SetupStep(
@@ -81,6 +94,7 @@ private fun SetupStep(
     body: String,
     isDone: Boolean,
     onClick: () -> Unit,
+    isOptional: Boolean = false,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -128,7 +142,12 @@ private fun SetupStep(
                         onClick = onClick,
                         modifier = Modifier.padding(top = 12.dp),
                     ) {
-                        Text(stringResource(R.string.action_grant))
+                        Text(
+                            stringResource(
+                                if (isOptional) R.string.action_grant_optional
+                                else R.string.action_grant,
+                            ),
+                        )
                     }
                 }
             }

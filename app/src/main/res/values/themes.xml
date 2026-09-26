@@ -5,11 +5,27 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
-    <!-- Opaque, always-on-top theme for the lock screen. -->
+    <!--
+      Opaque theme for the fallback lock screen, used only if the overlay
+      permission was denied. The overlay itself has no activity and therefore no
+      theme; it draws with the window background colour set directly.
+    -->
     <style name="Theme.Locky.LockScreen" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/lock_background</item>
         <item name="android:statusBarColor">@color/lock_background</item>
         <item name="android:navigationBarColor">@color/lock_background</item>
         <item name="android:windowShowWallpaper">false</item>
+    </style>
+
+    <!--
+      Invisible. The biometric host exists only to host a fragment, so its own
+      window must never be seen: it would otherwise flash over the lock overlay.
+    -->
+    <style name="Theme.Locky.Transparent" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
     </style>
 </resources>

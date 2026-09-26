@@ -3,6 +3,7 @@ package com.locky.app.ui
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,11 +25,17 @@ import kotlinx.coroutines.launch
 
 /** Where setup currently stands, so the UI can lead the user through it. */
 data class SetupState(
+    val isOverlayGranted: Boolean = false,
     val isDeviceAdminGranted: Boolean = false,
     val isAccessibilityGranted: Boolean = false,
     val isPinSet: Boolean = false,
 ) {
-    /** Setup is done once nothing is left to grant. */
+    /**
+     * Setup is done once nothing is left to grant.
+     *
+     * The overlay permission is deliberately not required: without it Locky falls
+     * back to the activity-based gate, which is slower but still locks apps.
+     */
     val isComplete: Boolean
         get() = isDeviceAdminGranted && isAccessibilityGranted && isPinSet
 }
@@ -123,6 +130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun readSetupState(): SetupState {
         val context = getApplication<Application>()
         return SetupState(
+            isOverlayGranted = Settings.canDrawOverlays(context),
             isDeviceAdminGranted = LockyAdminReceiver.isAdminActive(context),
             isAccessibilityGranted = isAccessibilityServiceEnabled(context),
             isPinSet = LockyApp.from(context).pinManager.isPinSet,
@@ -154,6 +162,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun accessibilityIntent(): Intent =
         Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * Intent that opens the "display over other apps" toggle.
+     *
+     * Unlike a runtime permission this cannot be requested inline: the user has
+     * to flip the switch themselves, so the Settings screen is opened directly.
+     */
+    fun overlayPermissionIntent(): Intent {
+        val context = getApplication<Application>()
+        return Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.fromParts("package", context.packageName, null),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
 
     companion object {
         /**
