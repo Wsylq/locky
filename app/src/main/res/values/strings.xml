@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Locky</string>
+    <string name="app_tagline">Lock the apps you don\'t want touched.</string>
+
+    <!-- Setup / status -->
+    <string name="protection_active">Locky is active</string>
+    <string name="protection_inactive">Finish setup to start protecting apps</string>
+    <string name="setup_step_admin_title">Step 1 · Prevent uninstall</string>
+    <string name="setup_step_admin_body">Device admin stops Locky from being removed, so the lock can\'t be bypassed. Locky never changes your lock screen, passwords, or data.</string>
+    <string name="setup_step_accessibility_title">Step 2 · Detect opened apps</string>
+    <string name="setup_step_accessibility_body">Android has no public API for detecting which app opens. The accessibility service does exactly that and nothing else.</string>
+    <string name="setup_step_pin_title">Step 3 · Set a PIN</string>
+    <string name="setup_step_pin_body">A 4–8 digit PIN unlocks your protected apps. Locky stores only a salted PBKDF2 hash, never the PIN itself.</string>
+
+    <string name="action_grant">Grant</string>
+    <string name="action_enabled">Enabled</string>
+    <string name="action_set_pin">Set PIN</string>
+    <string name="action_change_pin">Change PIN</string>
+    <string name="action_done">Done</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_unlock">Unlock</string>
+    <string name="action_lock_now">Lock now</string>
+    <string name="action_use_biometrics">Use biometrics</string>
+    <string name="biometrics_unavailable">Set up a screen lock on this device to unlock with biometrics.</string>
+    <string name="action_retry">Try again</string>
+
+    <!-- Main list -->
+    <string name="apps_title">Protected apps</string>
+    <string name="apps_locked_count">%1$d of %2$d apps locked</string>
+    <string name="apps_search_hint">Search apps</string>
+    <string name="apps_empty_title">No apps locked yet</string>
+    <string name="apps_empty_body">Search above and switch on any app to require the PIN before it opens.</string>
+    <string name="apps_no_results">No apps match “%1$s”</string>
+    <string name="apps_load_error">Could not read the list of installed apps. %1$s</string>
+    <string name="apps_retry">Retry</string>
+
+    <!-- PIN entry -->
+    <string name="pin_prompt_title">Enter your PIN</string>
+    <string name="pin_prompt_subtitle">Unlock %1$s</string>
+    <string name="pin_prompt_subtitle_generic">Enter your PIN to continue</string>
+    <string name="pin_wrong">Incorrect PIN</string>
+    <string name="pin_locked_out">Too many attempts. Try again in %1$s.</string>
+    <string name="pin_too_short">Use at least 4 digits</string>
+    <string name="pin_mismatch">PINs don\'t match</string>
+    <string name="pin_confirm_title">Confirm your PIN</string>
+    <string name="pin_delete">Delete</string>
+
+    <!-- Lock screen -->
+    <string name="lock_title">Locked</string>
+    <string name="lock_subtitle">Enter your PIN to open %1$s</string>
+    <string name="lock_admin_required">Device admin is required before Locky can lock apps.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_device_admin">Device admin</string>
+    <string name="settings_accessibility">Accessibility service</string>
+    <string name="settings_change_pin">Change PIN</string>
+    <string name="settings_lock_after">Lock again after</string>
+    <string name="settings_lock_after_value">%1$s away</string>
+    <string name="settings_about">About Locky</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_privacy_body">Locky works entirely on your device. It has no network permission, collects nothing, and sends nothing anywhere.</string>
+
+    <!-- Accessibility / admin descriptions shown in system settings -->
+    <string name="accessibility_service_label">Locky app lock</string>
+    <string name="accessibility_service_description">Watches which app moves to the foreground and shows the Locky PIN screen when that app is one you protected. Nothing is read, typed, or sent anywhere.</string>
+    <string name="device_admin_description">Lets Locky stop itself from being uninstalled while its lock is enabled. Locky cannot read your data, change your settings, or lock your device.</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      No <uses-policies> are declared on purpose: Locky uses device admin purely
+      to resist deactivation, so it requests no privileges over the device.
+    -->
+</device-admin>

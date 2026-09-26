@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Open padlock, drawn inside the 72dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:scaleX="1.6"
+        android:scaleY="1.6"
+        android:translateX="28.8"
+        android:translateY="28.8">
+        <!-- Shackle -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M42,26 m0,-10 a10,10 0 0,1 10,10 v6 h-7 v-6 a3,3 0 0,0 -6,0 v6 h-7 v-6 a10,10 0 0,1 10,-10 z" />
+        <!-- Body -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M33,32 h18 a4,4 0 0,1 4,4 v20 a4,4 0 0,1 -4,4 h-18 a4,4 0 0,1 -4,-4 v-20 a4,4 0 0,1 4,-4 z" />
+        <!-- Keyhole -->
+        <path
+            android:fillColor="#FF2563EB"
+            android:pathData="M42,42 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 z" />
+        <path
+            android:fillColor="#FF2563EB"
+            android:pathData="M40.5,44 h3 v9 h-3 z" />
+    </group>
+</vector>
