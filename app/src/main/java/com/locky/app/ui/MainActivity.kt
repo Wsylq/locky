@@ -80,6 +80,8 @@ private fun MainScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val setupState by viewModel.setupState.collectAsStateWithLifecycle()
     val warning by viewModel.protectionWarning.collectAsStateWithLifecycle()
+    val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
+    val testResult by viewModel.testResult.collectAsStateWithLifecycle()
     var showPinSetup by remember { mutableStateOf(false) }
 
     // The checklist stays visible when setup is finished but the service is not
@@ -133,6 +135,13 @@ private fun MainScreen(
                     onSetPin = { showPinSetup = true },
                 )
             }
+
+            DiagnosticsPanel(
+                diagnostics = diagnostics,
+                testResult = testResult,
+                onTest = viewModel::testOverlay,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
 
             AppList(
                 state = uiState,

@@ -62,6 +62,17 @@ data class AppsUiState(
         get() = installed.count { it.packageName in lockedPackages }
 }
 
+/** What the watcher is actually doing, as opposed to what is configured. */
+data class Diagnostics(
+    val accessibilityGranted: Boolean = false,
+    val overlayGranted: Boolean = false,
+    val isServiceConnected: Boolean = false,
+    val isOverlayAttached: Boolean = false,
+    val protectedAppCount: Int = 0,
+    val foregroundEventCount: Long = 0L,
+    val lastForegroundPackage: String? = null,
+)
+
 /**
  * State holder for the main screen.
  *
@@ -218,6 +229,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.fromParts("package", context.packageName, null),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    /**
+     * Everything needed to tell "the lock is broken" apart from "the lock was
+     * never armed".
+     *
+     * The watcher is invisible from the outside: a service can be enabled,
+     * running, and still be gating nothing, with the app looking perfectly
+     * configured. Showing these numbers turns "it does not lock" from a guess
+     * into an observation.
+     */
+    val diagnostics: StateFlow<Diagnostics> = combine(
+        setupState,
+        LockyRuntime.status,
+        repository.observeLockedApps(),
+    ) { setup, runtime, locked ->
+        Diagnostics(
+            accessibilityGranted = setup.isAccessibilityGranted,
+            overlayGranted = setup.isOverlayGranted,
+            isServiceConnected = runtime.isServiceConnected,
+            isOverlayAttached = runtime.isOverlayAttached,
+            protectedAppCount = locked.size,
+            foregroundEventCount = runtime.foregroundEventCount,
+            lastForegroundPackage = runtime.lastForegroundPackage,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Diagnostics())
+
+    /** Result of the most recent [testOverlay] attempt, shown under the button. */
+    val testResult: StateFlow<String?> = _testResult
+
+    private val _testResult = MutableStateFlow<String?>(null)
+
+    /**
+     * Shows the lock screen over this very app.
+     *
+     * Separates the two halves of the feature: if the PIN screen appears here,
+     * the overlay renders and the PIN works, so any remaining failure is in
+     * detecting app launches. If nothing appears, the problem is the window
+     * itself and nothing about detection is worth investigating.
+     */
+    fun testOverlay() {
+        val context = getApplication<Application>()
+        val overlay = AppWatcherService.overlay()
+        if (overlay == null || !overlay.isAttached) {
+            _testResult.value = context.getString(R.string.diag_test_no_service)
+            return
+        }
+        _testResult.value = null
+        overlay.show(context.packageName, context.getString(R.string.diag_test_app_name))
     }
 
     companion object {

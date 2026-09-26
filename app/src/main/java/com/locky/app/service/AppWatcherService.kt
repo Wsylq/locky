@@ -113,6 +113,8 @@ class AppWatcherService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: return
 
+        LockyRuntime.onForegroundEvent(packageName)
+
         // Never gate our own windows: the overlay changing state would otherwise
         // re-trigger itself in a loop.
         if (packageName == this.packageName) return

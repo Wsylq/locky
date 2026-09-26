@@ -37,6 +37,21 @@
     <string name="biometrics_unavailable">Set up a screen lock on this device to unlock with biometrics.</string>
     <string name="action_retry">Try again</string>
 
+    <!-- Live status of the watcher; see DiagnosticsPanel -->
+    <string name="diag_title">Status</string>
+    <string name="diag_service">Watcher service</string>
+    <string name="diag_protected">Apps protected</string>
+    <string name="diag_events">App launches seen</string>
+    <string name="diag_overlay">Instant overlay</string>
+    <string name="diag_running">Running</string>
+    <string name="diag_stopped">Not running</string>
+    <string name="diag_ready">Ready</string>
+    <string name="diag_unavailable">Using full screen</string>
+    <string name="diag_last_seen">Last app seen: %1$s</string>
+    <string name="diag_test_button">Show the lock screen</string>
+    <string name="diag_test_app_name">Locky (test)</string>
+    <string name="diag_test_no_service">The watcher service is not running, so there is no lock window to show. Re-enable it in Settings.</string>
+
     <!-- Main list -->
     <string name="apps_title">Protected apps</string>
     <string name="apps_locked_count">%1$d of %2$d apps locked</string>
