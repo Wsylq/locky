@@ -2,6 +2,7 @@ package com.locky.app.admin
 
 import android.app.admin.DeviceAdminReceiver
 import android.app.admin.DevicePolicyManager
+import android.app.admin.DevicePolicyReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -62,16 +63,20 @@ class LockyAdminReceiver : DeviceAdminReceiver() {
         private fun componentName(context: Context): ComponentName =
             ComponentName(context, LockyAdminReceiver::class.java)
 
+        // These constants are declared on DevicePolicyReceiver, the Java
+        // superclass of DeviceAdminReceiver. Inherited statics are not in scope
+        // inside a companion object, so they must be qualified explicitly.
         /** Intent that opens the system prompt to grant device admin. */
         fun enableIntent(context: Context): Intent =
-            Intent(ACTION_ADD_DEVICE_ADMIN).putExtra(
-                EXTRA_DEVICE_ADMIN,
+            Intent(DevicePolicyReceiver.ACTION_ADD_DEVICE_ADMIN).putExtra(
+                DevicePolicyReceiver.EXTRA_DEVICE_ADMIN,
                 componentName(context),
             )
 
+        /** Intent that opens the system prompt to revoke device admin. */
         fun disableIntent(context: Context): Intent =
-            Intent(ACTION_REMOVE_DEVICE_ADMIN).putExtra(
-                EXTRA_DEVICE_ADMIN,
+            Intent(DevicePolicyReceiver.ACTION_REMOVE_DEVICE_ADMIN).putExtra(
+                DevicePolicyReceiver.EXTRA_DEVICE_ADMIN,
                 componentName(context),
             )
     }

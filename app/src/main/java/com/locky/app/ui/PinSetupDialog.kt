@@ -39,9 +39,14 @@ fun PinSetupDialog(
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Resolved here rather than inside submit(): stringResource is @Composable,
+    // and submit() is an ordinary function.
+    val tooShortMessage = stringResource(R.string.pin_too_short)
+    val mismatchMessage = stringResource(R.string.pin_mismatch)
+
     fun submit() {
         if (pin.length < MIN_PIN_LENGTH) {
-            error = stringResource(R.string.pin_too_short)
+            error = tooShortMessage
             return
         }
         when (step) {
@@ -54,7 +59,7 @@ fun PinSetupDialog(
 
             PinSetupStep.CONFIRM -> {
                 if (pin != firstEntry) {
-                    error = stringResource(R.string.pin_mismatch)
+                    error = mismatchMessage
                     pin = ""
                     return
                 }

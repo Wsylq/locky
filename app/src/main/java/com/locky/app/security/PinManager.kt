@@ -26,7 +26,7 @@ class PinManager(context: Context) {
     /** Stores [pin], replacing any previous value. */
     fun setPin(pin: String) {
         val salt = ByteArray(SALT_BYTES).also(SecureRandom()::nextBytes)
-        val hash = derive(pin, salt)
+        val hash = derive(pin.toCharArray(), salt)
         prefs.edit()
             .putString(KEY_SALT, salt.toHex())
             .putString(KEY_HASH, hash.toHex())
