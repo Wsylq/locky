@@ -14,6 +14,7 @@ import com.locky.app.data.InstalledApp
 import com.locky.app.data.InstalledAppsLoader
 import com.locky.app.security.BiometricUnlock
 import com.locky.app.service.AppWatcherService
+import com.locky.app.service.LockyRuntime
 import com.locky.app.service.UnlockState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,6 +103,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val isBiometricAvailable: Boolean
         get() = BiometricUnlock.isAvailable(getApplication())
+
+    /**
+     * Whether the watcher is actually running.
+     *
+     * Deliberately separate from [SetupState.isAccessibilityGranted]: that reads
+     * the Settings record, which can say "enabled" while the service has been
+     * killed and is not actually gating anything. This reports what the service
+     * itself last told us.
+     */
+    val runtimeStatus: StateFlow<LockyRuntime.Status> = LockyRuntime.status
 
     init {
         viewModelScope.launch { loadInstalledApps() }

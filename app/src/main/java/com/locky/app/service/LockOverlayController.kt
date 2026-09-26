@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -20,6 +21,7 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
@@ -93,26 +95,36 @@ class LockOverlayController(private val context: Context) {
     @SuppressLint("InflateParams")
     fun attach() {
         if (root != null) return
-        if (!canShow()) return
+        if (!canShow()) {
+            Log.w(TAG, "attach: overlay permission not granted, using activity gate")
+            return
+        }
 
         val owner = OverlayLifecycleOwner().also { it.onCreate() }
         val container = FrameLayout(context).apply {
             // Opaque from the moment it is added, so showing it never composites
             // the app underneath through a translucent frame.
             setBackgroundColor(context.getColor(R.color.lock_background))
-            setViewTreeLifecycleOwner(owner)
-            setViewTreeSavedStateRegistryOwner(owner)
             isFocusable = true
             isFocusableInTouchMode = true
             visibility = View.INVISIBLE
         }
 
-        val composeView = ComposeView(context).apply {
-            setViewCompositionStrategy(
-                ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool,
-            )
-            setContent { OverlayContent() }
-        }
+        val composeView = ComposeView(context)
+        // All three owners must be set on the ComposeView itself, before
+        // setContent. A view added straight to the WindowManager has no activity
+        // behind it, and Compose throws "ViewTreeViewModelStoreOwner not found"
+        // when any of the three is unreachable. Setting them on the container is
+        // not enough: setContent() runs before the view is added to that
+        // container, so a lookup walking up the tree would find nothing there yet.
+        composeView.setViewTreeLifecycleOwner(owner)
+        composeView.setViewTreeViewModelStoreOwner(owner)
+        composeView.setViewTreeSavedStateRegistryOwner(owner)
+        composeView.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool,
+        )
+        composeView.setContent { OverlayContent() }
+
         container.addView(
             composeView,
             FrameLayout.LayoutParams(
@@ -126,10 +138,12 @@ class LockOverlayController(private val context: Context) {
 
         try {
             windowManager.addView(container, layoutParams())
+            Log.i(TAG, "attach: overlay window added")
         } catch (e: Exception) {
             // Thrown if the permission was revoked between the check and the add,
             // or if the window token is invalid. Tear down so a later attach can
             // retry rather than leaving a half-initialised window.
+            Log.e(TAG, "attach: addView failed, using activity gate", e)
             root = null
             owner.onDestroy()
             lifecycleOwner = null
@@ -138,7 +152,10 @@ class LockOverlayController(private val context: Context) {
 
     /** Reveals the lock over [packageName], updating it if already showing. */
     fun show(packageName: String, appLabel: String) {
-        val container = root ?: return
+        val container = root ?: run {
+            Log.w(TAG, "show: no window attached, ignoring $packageName")
+            return
+        }
         target = OverlayTarget(packageName, appLabel)
         if (container.visibility != View.VISIBLE) {
             container.visibility = View.VISIBLE
@@ -146,6 +163,7 @@ class LockOverlayController(private val context: Context) {
         // The overlay is focusable, so it must hold input focus for the keypad to
         // receive key events.
         container.requestFocus()
+        Log.i(TAG, "show: gating $appLabel")
     }
 
     /** Hides the overlay. Does not end any grace period already granted. */
@@ -202,6 +220,10 @@ class LockOverlayController(private val context: Context) {
                 BiometricHostActivity.launch(context, current.packageName)
             },
         )
+    }
+
+    private companion object {
+        const val TAG = "LockyOverlay"
     }
 }
 

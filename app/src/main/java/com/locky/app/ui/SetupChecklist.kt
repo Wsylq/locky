@@ -24,9 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.locky.app.R
+import com.locky.app.service.LockyRuntime
 
 /**
- * The three-step checklist shown until setup is finished.
+ * The setup checklist.
  *
  * Each step stays on screen once completed rather than disappearing, so the user
  * can see at a glance that it is done and undo it from Settings if they change
@@ -35,6 +36,7 @@ import com.locky.app.R
 @Composable
 fun SetupChecklist(
     state: SetupState,
+    runtime: LockyRuntime.Status,
     onGrantOverlay: () -> Unit,
     onGrantDeviceAdmin: () -> Unit,
     onGrantAccessibility: () -> Unit,
@@ -56,6 +58,13 @@ fun SetupChecklist(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // Shown when every permission looks granted yet nothing is being locked.
+        // Without this the failure is completely silent: the checklist is all
+        // ticked, so the only symptom is that protected apps just open.
+        runtime.problem?.let { problem ->
+            RuntimeWarning(problem = problem, onFix = onGrantAccessibility)
+        }
 
         SetupStep(
             title = stringResource(R.string.setup_step_overlay_title),
@@ -85,6 +94,47 @@ fun SetupChecklist(
             isDone = state.isPinSet,
             onClick = onSetPin,
         )
+    }
+}
+
+/**
+ * Banner explaining that Locky is installed and configured but not actually
+ * locking anything, with a button that goes straight to the relevant setting.
+ */
+@Composable
+private fun RuntimeWarning(
+    problem: LockyRuntime.Problem,
+    onFix: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.warning_not_protecting_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = when (problem) {
+                    LockyRuntime.Problem.SERVICE_STOPPED ->
+                        stringResource(R.string.warning_service_stopped)
+
+                    LockyRuntime.Problem.NO_PROTECTED_APPS ->
+                        stringResource(R.string.warning_no_protected_apps)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Spacer(Modifier.size(8.dp))
+            OutlinedButton(onClick = onFix) {
+                Text(stringResource(R.string.action_reenable_service))
+            }
+        }
     }
 }
 

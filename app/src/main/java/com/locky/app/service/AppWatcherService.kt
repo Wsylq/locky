@@ -3,6 +3,7 @@ package com.locky.app.service
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.drawable.Drawable
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.locky.app.LockyApp
 import com.locky.app.data.AppRepository
@@ -61,6 +62,14 @@ class AppWatcherService : AccessibilityService() {
     @Volatile
     private var fallbackActive = false
 
+    /**
+     * Count of consecutive foreground apps that were not protected.
+     *
+     * Only used for diagnostics: a high value alongside an empty cache is the
+     * signature of "the lock is installed but protecting nothing".
+     */
+    private var unprotectedForeground = 0
+
     private val isReady: Boolean
         get() = this::repository.isInitialized
 
@@ -72,6 +81,11 @@ class AppWatcherService : AccessibilityService() {
         appsLoader = InstalledAppsLoader(this)
 
         activeOverlay = LockOverlayController(this).also { it.attach() }
+        Log.i(
+            TAG,
+            "service connected, overlay attached=${activeOverlay?.isAttached}",
+        )
+        LockyRuntime.onServiceConnected(overlayAttached = activeOverlay?.isAttached == true)
 
         // Mirror the database into memory, resolving each app's label and icon
         // off the main thread. This runs off [Dispatchers.Default] via the scope,
@@ -87,6 +101,8 @@ class AppWatcherService : AccessibilityService() {
                 }
                 protectedApps.clear()
                 protectedApps.putAll(resolved)
+                Log.i(TAG, "cached ${resolved.size} protected app(s)")
+                LockyRuntime.onProtectedAppsChanged(resolved.size)
             }
         }
     }
@@ -104,7 +120,18 @@ class AppWatcherService : AccessibilityService() {
         val target = protectedApps[packageName]
 
         if (target == null) {
-            // Something unlocked came forward: the launcher, the shade, Settings.
+            // Nothing to gate. This is the normal case for the launcher, the
+            // shade, and Settings, but it is also what happens when the cache is
+            // empty and every app looks unprotected, so it is worth counting.
+            unprotectedForeground++
+            if (unprotectedForeground == UNPROTECTED_LOG_THRESHOLD) {
+                Log.w(
+                    TAG,
+                    "$unprotectedForeground foreground apps, none protected " +
+                        "(cached=${protectedApps.size}). Lock is not active.",
+                )
+            }
+
             // The overlay is a system window and does not follow the foreground app
             // on its own, so it has to be dismissed explicitly or Locky ends up
             // covering the home screen.
@@ -116,7 +143,12 @@ class AppWatcherService : AccessibilityService() {
             return
         }
 
-        if (unlockState.isUnlocked(packageName)) return
+        unprotectedForeground = 0
+
+        if (unlockState.isUnlocked(packageName)) {
+            Log.i(TAG, "$packageName already unlocked, letting it through")
+            return
+        }
 
         // Already gating this app: just retitle for the new foreground app rather
         // than stacking a second challenge.
@@ -149,6 +181,7 @@ class AppWatcherService : AccessibilityService() {
             )
             fallbackActive = true
         } catch (e: Exception) {
+            Log.e(TAG, "fallback activity failed to start", e)
             releaseChallenge()
         }
     }
@@ -179,6 +212,8 @@ class AppWatcherService : AccessibilityService() {
         }
         releaseChallenge()
         scope.cancel()
+        LockyRuntime.onServiceDisconnected()
+        Log.i(TAG, "service disconnected")
     }
 
     /** A protected app with everything needed to gate it already resolved. */
@@ -189,6 +224,11 @@ class AppWatcherService : AccessibilityService() {
     )
 
     companion object {
+        private const val TAG = "LockyWatcher"
+
+        /** How many unprotected launches in a row before warning. */
+        private const val UNPROTECTED_LOG_THRESHOLD = 5
+
         /**
          * True while a challenge is up.
          *
