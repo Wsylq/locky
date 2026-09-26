@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.locky.app.LockyApp
+import com.locky.app.R
 import com.locky.app.admin.LockyAdminReceiver
 import com.locky.app.data.AppRepository
 import com.locky.app.data.InstalledApp
@@ -256,10 +257,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Diagnostics())
 
+    private val _testResult = MutableStateFlow<String?>(null)
+
     /** Result of the most recent [testOverlay] attempt, shown under the button. */
     val testResult: StateFlow<String?> = _testResult
-
-    private val _testResult = MutableStateFlow<String?>(null)
 
     /**
      * Shows the lock screen over this very app.
