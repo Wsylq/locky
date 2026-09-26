@@ -79,13 +79,13 @@ private fun MainScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val setupState by viewModel.setupState.collectAsStateWithLifecycle()
-    val runtime by viewModel.runtimeStatus.collectAsStateWithLifecycle()
+    val warning by viewModel.protectionWarning.collectAsStateWithLifecycle()
     var showPinSetup by remember { mutableStateOf(false) }
 
     // The checklist stays visible when setup is finished but the service is not
     // running, because that is when the user most needs to be told something is
     // wrong and every step is already ticked.
-    val showChecklist = !setupState.isComplete || runtime.problem != null
+    val showChecklist = !setupState.isComplete || warning != null
 
     Scaffold(
         topBar = {
@@ -126,7 +126,7 @@ private fun MainScreen(
             if (showChecklist) {
                 SetupChecklist(
                     state = setupState,
-                    runtime = runtime,
+                    warning = warning,
                     onGrantOverlay = onRequestOverlay,
                     onGrantDeviceAdmin = onRequestDeviceAdmin,
                     onGrantAccessibility = onRequestAccessibility,

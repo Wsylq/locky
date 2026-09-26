@@ -16,12 +16,14 @@ import com.locky.app.security.BiometricUnlock
 import com.locky.app.service.AppWatcherService
 import com.locky.app.service.LockyRuntime
 import com.locky.app.service.UnlockState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 
 /** Where setup currently stands, so the UI can lead the user through it. */
@@ -105,14 +107,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         get() = BiometricUnlock.isAvailable(getApplication())
 
     /**
-     * Whether the watcher is actually running.
+     * Why Locky is not protecting anything, or null when it is.
      *
-     * Deliberately separate from [SetupState.isAccessibilityGranted]: that reads
-     * the Settings record, which can say "enabled" while the service has been
-     * killed and is not actually gating anything. This reports what the service
-     * itself last told us.
+     * Deliberately not the raw service status. A freshly started process has not
+     * been told the service connected yet, so reporting that as a problem would
+     * flash a false alarm every time the app opened. A service that Settings says
+     * is enabled but which has not bound after a grace period is a real problem,
+     * and that is the case worth naming.
      */
-    val runtimeStatus: StateFlow<LockyRuntime.Status> = LockyRuntime.status
+    val protectionWarning: StateFlow<LockyRuntime.Problem?> =
+        combine(setupState, LockyRuntime.status) { setup, runtime ->
+            diagnose(setup, runtime)
+        }
+            .transformLatest { problem ->
+                if (problem == LockyRuntime.Problem.SERVICE_STOPPED) {
+                    // Android binds an enabled accessibility service shortly after
+                    // the process starts, so wait rather than accuse immediately.
+                    delay(SERVICE_BIND_GRACE_MILLIS)
+                    if (LockyRuntime.status.value.isServiceConnected) return@transformLatest
+                }
+                emit(problem)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private fun diagnose(
+        setup: SetupState,
+        runtime: LockyRuntime.Status,
+    ): LockyRuntime.Problem? = when {
+        // Say nothing: the checklist already shows the missing grant, and a
+        // warning on top of it is just noise.
+        !setup.isAccessibilityGranted -> null
+
+        runtime.isServiceConnected && runtime.protectedAppCount == 0 ->
+            LockyRuntime.Problem.NO_PROTECTED_APPS
+
+        !runtime.isServiceConnected -> LockyRuntime.Problem.SERVICE_STOPPED
+
+        else -> null
+    }
 
     init {
         viewModelScope.launch { loadInstalledApps() }
@@ -189,6 +221,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        /**
+         * How long to wait for the system to bind an enabled accessibility
+         * service before reporting it as stopped.
+         */
+        private const val SERVICE_BIND_GRACE_MILLIS = 2_500L
+
         /**
          * True when Locky's accessibility service is switched on.
          *
