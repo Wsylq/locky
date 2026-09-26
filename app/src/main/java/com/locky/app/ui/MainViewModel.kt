@@ -72,6 +72,7 @@ data class Diagnostics(
     val protectedAppCount: Int = 0,
     val foregroundEventCount: Long = 0L,
     val lastForegroundPackage: String? = null,
+    val watcherError: String? = null,
 )
 
 /**
@@ -254,6 +255,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             protectedAppCount = locked.size,
             foregroundEventCount = runtime.foregroundEventCount,
             lastForegroundPackage = runtime.lastForegroundPackage,
+            watcherError = runtime.watcherError,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Diagnostics())
 

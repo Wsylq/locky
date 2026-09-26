@@ -32,6 +32,14 @@ object LockyRuntime {
         val foregroundEventCount: Long = 0L,
         /** The last package that came to the foreground, for spot-checking. */
         val lastForegroundPackage: String? = null,
+        /**
+         * Set when the watcher started but could not do its job.
+         *
+         * Distinct from "not connected" on purpose. Both leave the lock doing
+         * nothing, but only one of them is the user's fault, and telling someone
+         * to go re-enable a service that is already running wastes their time.
+         */
+        val watcherError: String? = null,
     ) {
         /**
          * The reason Locky is not protecting anything, or null if it is.
@@ -41,6 +49,7 @@ object LockyRuntime {
          */
         val problem: Problem?
             get() = when {
+                watcherError != null -> Problem.WATCHER_FAILED
                 !isServiceConnected -> Problem.SERVICE_STOPPED
                 protectedAppCount == 0 -> Problem.NO_PROTECTED_APPS
                 else -> null
@@ -53,6 +62,9 @@ object LockyRuntime {
 
         /** The service is running but nothing is marked as protected. */
         NO_PROTECTED_APPS,
+
+        /** The service is running but hit an error and cannot gate anything. */
+        WATCHER_FAILED,
     }
 
     private val _status = MutableStateFlow(Status())
@@ -67,6 +79,7 @@ object LockyRuntime {
      */
     private val eventCount = AtomicLong(0)
 
+    /** Reported before the service does any work, so failures are attributable. */
     internal fun onServiceConnected(overlayAttached: Boolean) {
         eventCount.set(0)
         _status.value = Status(
@@ -84,6 +97,10 @@ object LockyRuntime {
             foregroundEventCount = eventCount.incrementAndGet(),
             lastForegroundPackage = packageName,
         )
+    }
+
+    internal fun onWatcherError(message: String) {
+        _status.value = _status.value.copy(watcherError = message)
     }
 
     internal fun onServiceDisconnected() {

@@ -95,6 +95,17 @@ fun DiagnosticsPanel(
                 isGood = true,
             )
 
+            if (diagnostics.watcherError != null) {
+                Text(
+                    text = stringResource(
+                        R.string.diag_watcher_error,
+                        diagnostics.watcherError,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             if (diagnostics.lastForegroundPackage != null) {
                 Text(
                     text = stringResource(

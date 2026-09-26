@@ -2,17 +2,17 @@ package com.locky.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.graphics.drawable.Drawable
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.locky.app.LockyApp
 import com.locky.app.data.AppRepository
 import com.locky.app.data.InstalledAppsLoader
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -42,7 +42,22 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class AppWatcherService : AccessibilityService() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /**
+     * Background work for the protected-app cache.
+     *
+     * The exception handler is not optional here. This scope runs in the
+     * accessibility service's process, so an uncaught failure would kill the
+     * process and take the service down with it — which presents to the user as
+     * "the service is enabled but not locking anything", indistinguishable from
+     * never having enabled it. Swallowing and logging keeps a bad app from
+     * turning into a dead lock.
+     */
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, throwable ->
+            Log.e(TAG, "watcher background work failed", throwable)
+            LockyRuntime.onWatcherError("The lock service hit an internal error")
+        },
+    )
 
     private lateinit var repository: AppRepository
     private lateinit var unlockState: UnlockState
@@ -75,29 +90,47 @@ class AppWatcherService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        val app = LockyApp.from(this)
-        repository = app.repository
+
+        // Reported before anything that can fail. The service genuinely is
+        // connected at this point, so if a later step throws the UI must say
+        // "running" rather than blaming the user for not having enabled it.
+        LockyRuntime.onServiceConnected(overlayAttached = false)
+        Log.i(TAG, "service connected")
+
+        // Without the database there is no protected set, so there is nothing to
+        // gate. Say so rather than silently locking nothing.
+        repository = runCatching { LockyApp.from(this).repository }.getOrElse { e ->
+            Log.e(TAG, "cannot open the protected-app database", e)
+            LockyRuntime.onWatcherError("Could not read the protected app list")
+            return
+        }
         unlockState = UnlockState.get(this)
         appsLoader = InstalledAppsLoader(this)
 
-        activeOverlay = LockOverlayController(this).also { it.attach() }
-        Log.i(
-            TAG,
-            "service connected, overlay attached=${activeOverlay?.isAttached}",
-        )
-        LockyRuntime.onServiceConnected(overlayAttached = activeOverlay?.isAttached == true)
+        activeOverlay = runCatching {
+            LockOverlayController(this).also { it.attach() }
+        }.getOrElse { e ->
+            Log.e(TAG, "overlay could not be created; using the full screen gate", e)
+            null
+        }
+        val overlayAttached = activeOverlay?.isAttached == true
+        Log.i(TAG, "overlay attached=$overlayAttached")
+        LockyRuntime.onServiceConnected(overlayAttached = overlayAttached)
 
-        // Mirror the database into memory, resolving each app's label and icon
-        // off the main thread. This runs off [Dispatchers.Default] via the scope,
-        // so a package with fifty installed apps cannot stall the event thread.
+        // Mirror the database into memory, resolving each label off the main
+        // thread so a package with fifty installed apps cannot stall the event
+        // thread. collect() rather than collectLatest(): if a second emission
+        // arrives while this one is still running, collectLatest would cancel
+        // mid-build and leave the cache permanently empty.
         scope.launch {
-            repository.observeLockedApps().collectLatest { apps ->
-                val resolved = apps.associate { entity ->
-                    entity.packageName to ProtectedApp(
-                        packageName = entity.packageName,
-                        label = appsLoader.labelFor(entity.packageName),
-                        icon = appsLoader.iconFor(entity.packageName),
-                    )
+            repository.observeLockedApps().collect { apps ->
+                // Built to completion before anything is swapped in, so a
+                // partially resolved map can never replace a good one.
+                val resolved = HashMap<String, ProtectedApp>(apps.size)
+                for (entity in apps) {
+                    val label = runCatching { appsLoader.labelFor(entity.packageName) }
+                        .getOrDefault(entity.packageName)
+                    resolved[entity.packageName] = ProtectedApp(entity.packageName, label)
                 }
                 protectedApps.clear()
                 protectedApps.putAll(resolved)
@@ -218,11 +251,17 @@ class AppWatcherService : AccessibilityService() {
         Log.i(TAG, "service disconnected")
     }
 
-    /** A protected app with everything needed to gate it already resolved. */
+    /**
+     * A protected app with everything needed to gate it already resolved.
+     *
+     * Deliberately no icon: the lock screen does not display one, and
+     * `PackageManager.getApplicationIcon` is one of the more failure-prone calls
+     * in the platform. Loading them for a UI that never drew them was a crash
+     * risk on the accessibility service's critical path for no benefit.
+     */
     private data class ProtectedApp(
         val packageName: String,
         val label: String,
-        val icon: Drawable?,
     )
 
     companion object {

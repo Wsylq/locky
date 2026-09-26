@@ -83,8 +83,10 @@ class InstalledAppsLoader(private val context: Context) {
     /**
      * The launcher icon for a package, resolved off the main thread.
      *
-     * Cached ahead of time by the accessibility service so that gating a launch
-     * never has to call into the package manager on the critical path.
+     * Only used by the settings list, which already loads every icon at once.
+     * The accessibility service deliberately does not call this: the lock screen
+     * shows no icon, and this call is one of the more failure-prone in the
+     * platform, so on the gating path it is a risk with no benefit.
      */
     suspend fun iconFor(packageName: String): Drawable? = withContext(Dispatchers.IO) {
         try {

@@ -22,8 +22,11 @@
     <!-- Shown when Locky is fully set up but is not actually locking anything. -->
     <string name="warning_not_protecting_title">Locky is not locking anything</string>
     <string name="warning_not_protecting_short">Not protecting apps</string>
-    <string name="warning_service_stopped">Everything is set up, but the Locky service is not running. Android switches it off when the app is updated or reinstalled. Re-enable it below.</string>
-    <string name="warning_no_protected_apps">The Locky service is running, but no apps are marked as protected. Use the switch on an app to protect it.</string>
+    <string name="warning_service_stopped">Everything is set up, but the Locky service is not running. Android switches it off every time the app is updated or reinstalled.</string>
+    <string name="warning_find_service">In Settings, open Accessibility, then Installed services, and switch on “%1$s”. It is not listed under the name “Locky”.</string>
+    <string name="diag_watcher_error">Watcher error: %1$s</string>
+    <string name="warning_no_protected_apps">The Locky service is running, but no apps are marked as protected. Scroll down to the app list and switch on any app you want locked.</string>
+    <string name="warning_watcher_failed">The Locky service is running but hit an error, so it cannot lock anything yet. Reopen the app; if it keeps happening, reinstall Locky.</string>
     <string name="action_enabled">Enabled</string>
     <string name="action_set_pin">Set PIN</string>
     <string name="action_change_pin">Change PIN</string>

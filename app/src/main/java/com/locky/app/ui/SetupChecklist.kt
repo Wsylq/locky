@@ -179,7 +179,11 @@ private fun StatusRow(
 
 /**
  * Banner explaining that Locky is installed and configured but not actually
- * locking anything, with a button that goes straight to the relevant setting.
+ * locking anything.
+ *
+ * The action offered matches the problem. An earlier version showed "Re-enable
+ * Locky" for every cause, which sent users to Settings to fix something that was
+ * not a settings problem.
  */
 @Composable
 private fun RuntimeWarning(
@@ -206,13 +210,43 @@ private fun RuntimeWarning(
 
                     LockyRuntime.Problem.NO_PROTECTED_APPS ->
                         stringResource(R.string.warning_no_protected_apps)
+
+                    LockyRuntime.Problem.WATCHER_FAILED ->
+                        stringResource(R.string.warning_watcher_failed)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
-            Spacer(Modifier.size(8.dp))
-            OutlinedButton(onClick = onFix) {
-                Text(stringResource(R.string.action_reenable_service))
+
+            // The service is listed under its own label in Settings, not under
+            // the app name, which is the single most likely reason someone cannot
+            // find it when told to go re-enable "Locky".
+            if (problem == LockyRuntime.Problem.SERVICE_STOPPED) {
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    text = stringResource(
+                        R.string.warning_find_service,
+                        stringResource(R.string.accessibility_service_label),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+
+            // Only the stopped-service case is fixed in Settings. Telling someone
+            // to go re-enable an already-running service is worse than saying
+            // nothing at all.
+            if (problem == LockyRuntime.Problem.SERVICE_STOPPED) {
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = stringResource(R.string.warning_find_service),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Spacer(Modifier.size(8.dp))
+                OutlinedButton(onClick = onFix) {
+                    Text(stringResource(R.string.action_reenable_service))
+                }
             }
         }
     }
