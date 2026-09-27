@@ -82,6 +82,13 @@ object BiometricPreference {
      *
      * Device credentials are always allowed alongside, so the prompt can always
      * fall back to the phone's own PIN and unlocking is never weaker than that.
+     *
+     * Note what the weak branch does *not* do: it does not stop asking for strong.
+     * `BIOMETRIC_WEAK` on its own already includes Class 3, so requesting weak is
+     * a superset of strong, not a trade of one for the other. A phone with a good
+     * fingerprint and a Class 2 face still offers the fingerprint, and the face
+     * becomes available as well. That is what makes this a widening rather than a
+     * weakening for anyone whose strong sensor is already enrolled.
      */
     fun authenticatorsFor(context: Context): Int =
         if (allowsWeakBiometrics(context)) {

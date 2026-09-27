@@ -74,27 +74,19 @@ fun SettingsDialog(
 
                 BiometricSummary(biometrics)
 
-                // Only offered where it would actually change anything. A phone
-                // whose face is already Class 3 is unlocked by face today, and
-                // showing a switch that does nothing would imply otherwise.
-                if (biometrics.needsWeakDecision) {
-                    WeakBiometricSwitch(
-                        checked = biometrics.allowsWeak,
-                        onCheckedChange = onAllowWeakBiometricsChange,
-                    )
-                } else {
-                    Text(
-                        text = stringResource(
-                            if (biometrics.capabilities.strongBiometrics) {
-                                R.string.settings_face_already_strong
-                            } else {
-                                R.string.settings_biometric_none
-                            },
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                WeakBiometricSwitch(
+                    checked = biometrics.allowsWeak,
+                    hasWeakEnrolled = biometrics.weakDecisionHasEffect,
+                    onCheckedChange = onAllowWeakBiometricsChange,
+                )
+
+                // Offered unconditionally, including when the framework reports no
+                // weak biometric. See [BiometricUiState.needsWeakDecision]: gating it
+                // hid the setting on phones that have a strong fingerprint *and* a
+                // weak face, which is most modern phones. Being able to turn it on
+                // and see is worth more than being told in advance it will not help
+                // — the framework's answer is not always the whole story, and where
+                // it is the whole story the supporting sentence says so.
             }
         },
         confirmButton = {
@@ -143,10 +135,16 @@ private fun BiometricSummary(biometrics: BiometricUiState) {
 /**
  * The one control in the app that lowers security, so it carries its consequence
  * next to it rather than behind a help link.
+ *
+ * [hasWeakEnrolled] only changes the supporting sentence, never whether the switch
+ * is there. It is a read of what the framework currently reports, and the point of
+ * showing it is to distinguish "turned on, doing nothing" from "not turned on yet" —
+ * two states that look identical on a lock screen that simply never offers face.
  */
 @Composable
 private fun WeakBiometricSwitch(
     checked: Boolean,
+    hasWeakEnrolled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Column {
@@ -171,10 +169,11 @@ private fun WeakBiometricSwitch(
         }
 
         Text(
-            text = if (checked) {
-                stringResource(R.string.settings_weak_on_notice)
-            } else {
-                stringResource(R.string.settings_allow_weak_summary)
+            text = when {
+                checked && !hasWeakEnrolled -> stringResource(R.string.settings_weak_on_no_enrolment)
+                checked -> stringResource(R.string.settings_weak_on_notice)
+                !hasWeakEnrolled -> stringResource(R.string.settings_weak_off_nothing_enrolled)
+                else -> stringResource(R.string.settings_allow_weak_summary)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = if (checked) {

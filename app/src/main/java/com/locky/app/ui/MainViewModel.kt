@@ -73,14 +73,35 @@ data class BiometricUiState(
     val hasFingerprintSensor: Boolean = false,
 ) {
     /**
-     * True when accepting a weak biometric is the only way to use one at all.
+     * Whether the weak-biometric switch should be offered at all.
      *
-     * Gated on this rather than shown always: with a strong biometric enrolled the
-     * prompt already uses it, and with nothing enrolled there is nothing to accept.
-     * Either way the switch would be a control over nothing.
+     * Always true, deliberately. It was previously gated on "a weak biometric is
+     * enrolled and no strong one is", on the reasoning that the prompt would use
+     * the strong one anyway. That reasoning was wrong, and wrong in a way that
+     * hid the setting on exactly the phones that need it.
+     *
+     * The allowed authenticators define what the prompt *offers*, not a floor it
+     * filters down to. A request for BIOMETRIC_STRONG on a phone that has both a
+     * Class 3 fingerprint and a Class 2 face presents the fingerprint alone — the
+     * face is not merely deprioritised, it is absent. So on a Samsung S21 FE, whose
+     * fingerprint is Class 3 and whose face is software-based Class 2, the old
+     * condition saw the strong fingerprint and concluded there was nothing to
+     * decide. The user was left with no way to ask for face.
      */
     val needsWeakDecision: Boolean
-        get() = capabilities.faceNeedsWeakerBiometrics
+        get() = true
+
+    /**
+     * True when the read value gives a reason to expect the switch to do nothing.
+     *
+     * Worth stating plainly rather than hiding the control, because on some OEM
+     * builds the framework reports no weak biometric even when the user has
+     * arranged one in the manufacturer's own settings. There Locky cannot offer face,
+     * and no setting here will change that — but the user should be able to turn the
+     * switch on and find out rather than be told it is unavailable.
+     */
+    val weakDecisionHasEffect: Boolean
+        get() = capabilities.weakBiometrics
 }
 
 /** Everything the apps screen renders, in one immutable value. */

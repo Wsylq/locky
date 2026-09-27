@@ -56,11 +56,13 @@
 
     <!-- Biometrics, and the one setting that can lower Locky's strength -->
     <string name="settings_biometrics">Unlocking</string>
-    <string name="settings_allow_weak_biometrics">Accept face unlock on this phone</string>
-    <string name="settings_allow_weak_summary">This phone\'s face sensor is Class 2, which Android calls weak. It will not be offered unless this is on — but Class 2 sensors can be fooled by a photograph on some devices, so accepting one makes Locky weaker than your phone\'s own screen lock.</string>
+    <string name="settings_allow_weak_biometrics">Accept face unlock (Class 2)</string>
+    <string name="settings_allow_weak_summary">This phone has a Class 2 unlock enrolled, which is what software-based face recognition usually is. It is only offered if this is on. Class 2 can be fooled by a photograph on some devices, so accepting one makes Locky weaker than your phone\'s own screen lock.</string>
+    <string name="settings_weak_off_nothing_enrolled">Android is not reporting a Class 2 unlock on this phone. Turn this on if you have set up face in your phone\'s own settings anyway — some manufacturers keep it out of reach of apps, and if so, no setting here can offer it.</string>
+    <string name="settings_weak_on_notice">Class 2 unlock is now accepted. This is weaker than your screen lock.</string>
+    <string name="settings_weak_on_no_enrolment">Switched on, but Android still reports no Class 2 unlock. Your phone is probably keeping face recognition to itself. If no face prompt appears, this cannot be fixed from Locky.</string>
     <string name="settings_face_already_strong">This phone already has a Class 3 (strong) unlock set up, so Locky uses it already. Nothing to change.</string>
     <string name="settings_biometric_none">No fingerprint or face unlock is set up on this phone, so Locky can only offer your device PIN, pattern or password.</string>
-    <string name="settings_weak_on_notice">Face unlock is now accepted. This is weaker than your screen lock.</string>
     <string name="diag_biometrics">Unlocking method</string>
     <string name="diag_face_sensor">Face sensor</string>
     <string name="diag_fingerprint_sensor">Fingerprint sensor</string>

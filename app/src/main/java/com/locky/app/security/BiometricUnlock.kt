@@ -34,6 +34,18 @@ object BiometricUnlock {
      * Queried one authenticator at a time rather than as a combination, because
      * the interesting question is *which* class the sensor is. A combined query
      * answers "can I unlock" and stays silent about why a face is being refused.
+     *
+     * Note the asymmetry that this whole feature turned on. The allowed
+     * authenticators decide what the prompt *offers*; they are not a floor it
+     * filters down to. Asking for BIOMETRIC_STRONG on a phone holding both a
+     * Class 3 fingerprint and a Class 2 face presents the fingerprint alone — the
+     * face is not deprioritised, it is absent. So "a strong biometric is enrolled"
+     * never implies the weak one is available, and the only way to see what is
+     * actually on offer is to ask about the two separately.
+     *
+     * Whatever this returns is the ceiling on what Locky can offer. A phone that
+     * keeps face recognition away from apps reports nothing here, and no setting
+     * in this app can raise it.
      */
     fun capabilities(context: Context): BiometricCapabilities {
         val manager = BiometricManager.from(context)
