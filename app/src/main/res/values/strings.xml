@@ -54,6 +54,26 @@
     <string name="relock_minutes_30">30 minutes</string>
     <string name="relock_hour_1">1 hour</string>
 
+    <!-- Biometrics, and the one setting that can lower Locky's strength -->
+    <string name="settings_biometrics">Unlocking</string>
+    <string name="settings_allow_weak_biometrics">Accept face unlock on this phone</string>
+    <string name="settings_allow_weak_summary">This phone\'s face sensor is Class 2, which Android calls weak. It will not be offered unless this is on — but Class 2 sensors can be fooled by a photograph on some devices, so accepting one makes Locky weaker than your phone\'s own screen lock.</string>
+    <string name="settings_face_already_strong">This phone already has a Class 3 (strong) unlock set up, so Locky uses it already. Nothing to change.</string>
+    <string name="settings_biometric_none">No fingerprint or face unlock is set up on this phone, so Locky can only offer your device PIN, pattern or password.</string>
+    <string name="settings_weak_on_notice">Face unlock is now accepted. This is weaker than your screen lock.</string>
+    <string name="diag_biometrics">Unlocking method</string>
+    <string name="diag_face_sensor">Face sensor</string>
+    <string name="diag_fingerprint_sensor">Fingerprint sensor</string>
+    <string name="diag_bio_class_strong">Class 3 (strong)</string>
+    <string name="diag_bio_class_weak">Class 2 (weak)</string>
+    <string name="diag_bio_device_credential">PIN / pattern / password</string>
+    <string name="diag_bio_short_strong">Class 3</string>
+    <string name="diag_bio_short_weak">Class 2</string>
+    <string name="diag_bio_short_credential">device PIN</string>
+    <string name="diag_none">none</string>
+    <string name="diag_present">present</string>
+    <string name="diag_absent">absent</string>
+
     <!-- Live status of the watcher; see DiagnosticsPanel -->
     <string name="diag_title">Status</string>
     <string name="diag_service">Watcher service</string>
@@ -70,7 +90,7 @@
     <string name="diag_last_result">Last result</string>
     <string name="diag_decision_gated">LOCKED (lock raised)</string>
     <string name="diag_decision_own_window">skipped · Locky\'s own window</string>
-    <string name="diag_decision_prompt">skipped · fingerprint prompt was open</string>
+    <string name="diag_decision_prompt">skipped · unlock prompt was open</string>
     <string name="diag_decision_just_authenticated">skipped · just unlocked, not left since</string>
     <string name="diag_decision_not_protected">skipped · not in the protected list</string>
     <string name="diag_decision_within_grace">skipped · still inside its grace period</string>

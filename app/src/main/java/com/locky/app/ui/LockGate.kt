@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.locky.app.LockyApp
 import com.locky.app.R
 import com.locky.app.security.AttemptLimiter
+import com.locky.app.security.BiometricPreference
 import com.locky.app.security.BiometricUnlock
 import com.locky.app.ui.theme.AccentBlue
 import com.locky.app.ui.theme.AccentGlow
@@ -86,10 +88,17 @@ fun LockGate(
     val scope = rememberCoroutineScope()
 
     // Whether the device has a secure screen lock to fall back on, which is what
-    // makes the fingerprint or face prompt available at all. Resolved once per
-    // gate: it talks to the framework, and the answer cannot change while a lock
-    // is on screen.
-    val biometricsAvailable = remember(context) { BiometricUnlock.isAvailable(context) }
+    // makes the fingerprint or face prompt available at all.
+    //
+    // Keyed on the weak-biometric choice rather than cached once and forgotten: the
+    // overlay builds this composable a single time and then shows and hides it, so a
+    // plain remember would keep the answer from the first lock the user ever saw.
+    // Turning on face unlock would then look like it had done nothing until the
+    // process restarted.
+    val allowsWeakBiometrics by BiometricPreference.allowsWeakFlow.collectAsState()
+    val biometricsAvailable = remember(context, allowsWeakBiometrics) {
+        BiometricUnlock.isAvailable(context)
+    }
 
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -245,6 +254,9 @@ fun PinEntryScreen(
     onSubmit: () -> Unit,
     onUseBiometrics: () -> Unit,
 ) {
+    // Matched to the hardware the phone has. On a face-only handset a fingerprint
+    // glyph is a promise of a gesture the user cannot make.
+    val unlockIcon = LockyIcons.unlockIcon(LocalContext.current)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -338,7 +350,7 @@ fun PinEntryScreen(
                     modifier = Modifier.fillMaxWidth(0.86f),
                 ) {
                     Icon(
-                        imageVector = LockyIcons.Fingerprint,
+                        imageVector = unlockIcon,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                     )

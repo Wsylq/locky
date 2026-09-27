@@ -98,8 +98,9 @@ private fun MainScreen(
     val enabledServicesRaw by viewModel.enabledServicesRaw.collectAsStateWithLifecycle()
     val testResult by viewModel.testResult.collectAsStateWithLifecycle()
     val relockOption by viewModel.relockOption.collectAsStateWithLifecycle()
+    val biometrics by viewModel.biometrics.collectAsStateWithLifecycle()
     var showPinSetup by remember { mutableStateOf(false) }
-    var showReLock by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     // The checklist stays visible when setup is finished but the service is not
     // running, because that is when the user most needs to be told something is
@@ -139,7 +140,7 @@ private fun MainScreen(
                     // The current period is spelled out in the button's label rather
                     // than left to be discovered inside the dialog, so the setting
                     // is readable without opening anything.
-                    IconButton(onClick = { showReLock = true }) {
+                    IconButton(onClick = { showSettings = true }) {
                         Icon(
                             imageVector = LockyIcons.Settings,
                             contentDescription = stringResource(
@@ -182,6 +183,7 @@ private fun MainScreen(
                 runtime = runtime,
                 protectedCountInUi = protectedCountInUi,
                 enabledServicesRaw = enabledServicesRaw,
+                biometrics = biometrics,
                 testResult = testResult,
                 onTestOverlay = viewModel::testOverlay,
                 onTestFullScreen = viewModel::testFullScreenLock,
@@ -205,11 +207,13 @@ private fun MainScreen(
         )
     }
 
-    if (showReLock) {
-        ReLockDialog(
-            selected = relockOption,
-            onSelect = viewModel::setRelockOption,
-            onDismiss = { showReLock = false },
+    if (showSettings) {
+        SettingsDialog(
+            relock = relockOption,
+            onRelock = viewModel::setRelockOption,
+            biometrics = biometrics,
+            onAllowWeakBiometricsChange = viewModel::setAllowsWeakBiometrics,
+            onDismiss = { showSettings = false },
         )
     }
 }

@@ -2,6 +2,9 @@ package com.locky.app.security
 
 import android.content.Context
 import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
@@ -12,18 +15,38 @@ import java.util.concurrent.Executor
 /**
  * Device-credential / biometric unlock, used as an alternative to the PIN.
  *
- * The prompt deliberately requires device credentials rather than a bare
- * biometric, so unlocking never becomes weaker than the phone's own lock screen.
+ * The prompt always allows device credentials alongside the biometric, so
+ * unlocking never becomes weaker than the phone's own lock screen. Whether it
+ * also accepts a *weak* biometric is the user's call — see [BiometricPreference],
+ * which is why this object asks for the authenticator set rather than owning it.
  */
 object BiometricUnlock {
 
     /**
      * True when the device has a secure lock screen that can back an unlock.
      */
-    fun isAvailable(context: Context): Boolean {
+    fun isAvailable(context: Context): Boolean =
+        canAuthenticate(context, BiometricPreference.authenticatorsFor(context))
+
+    /**
+     * What this device can authenticate with, and at what strength class.
+     *
+     * Queried one authenticator at a time rather than as a combination, because
+     * the interesting question is *which* class the sensor is. A combined query
+     * answers "can I unlock" and stays silent about why a face is being refused.
+     */
+    fun capabilities(context: Context): BiometricCapabilities {
         val manager = BiometricManager.from(context)
-        return manager.canAuthenticate(AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
+        return BiometricCapabilities(
+            strongBiometrics = canAuthenticate(context, BIOMETRIC_STRONG),
+            weakBiometrics = canAuthenticate(context, BIOMETRIC_WEAK),
+            deviceCredential = canAuthenticate(context, DEVICE_CREDENTIAL),
+        )
     }
+
+    private fun canAuthenticate(context: Context, authenticators: Int): Boolean =
+        BiometricManager.from(context).canAuthenticate(authenticators) ==
+            BiometricManager.BIOMETRIC_SUCCESS
 
     /**
      * Shows the system unlock prompt.
@@ -70,15 +93,11 @@ object BiometricUnlock {
                 BiometricPrompt.PromptInfo.Builder()
                     .setTitle(title)
                     .setSubtitle(subtitle)
-                    .setAllowedAuthenticators(AUTHENTICATORS)
+                    .setAllowedAuthenticators(BiometricPreference.authenticatorsFor(activity))
                     .build(),
             )
         }.onFailure {
             onError(activity.getString(R.string.biometrics_prompt_failed))
         }
     }
-
-    private const val AUTHENTICATORS =
-        BiometricManager.Authenticators.BIOMETRIC_STRONG or
-            BiometricManager.Authenticators.DEVICE_CREDENTIAL
 }

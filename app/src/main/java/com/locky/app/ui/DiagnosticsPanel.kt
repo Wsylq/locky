@@ -46,6 +46,7 @@ fun DiagnosticsPanel(
     runtime: LockyRuntime.Status,
     protectedCountInUi: Int,
     enabledServicesRaw: String,
+    biometrics: BiometricUiState,
     testResult: String?,
     onTestOverlay: () -> Unit,
     onTestFullScreen: () -> Unit,
@@ -130,6 +131,40 @@ fun DiagnosticsPanel(
                 )
             }
 
+            // What the phone can actually authenticate with, and which class it is
+            // in. Face unlock failing to appear is the one report where the cause
+            // is genuinely invisible from the outside: a Class 2 sensor is refused
+            // by a strong-only request exactly the way a missing sensor is, and
+            // both look like a button that is not there.
+            StatusLine(
+                label = stringResource(R.string.diag_face_sensor),
+                value = stringResource(
+                    if (biometrics.hasFaceSensor) R.string.diag_present else R.string.diag_absent,
+                ),
+                // Not good or bad on its own: hardware tells you nothing about
+                // whether anything is enrolled on it.
+                isGood = true,
+            )
+
+            StatusLine(
+                label = stringResource(R.string.diag_fingerprint_sensor),
+                value = stringResource(
+                    if (biometrics.hasFingerprintSensor) {
+                        R.string.diag_present
+                    } else {
+                        R.string.diag_absent
+                    },
+                ),
+                isGood = true,
+            )
+
+            StatusLine(
+                label = stringResource(R.string.diag_biometrics),
+                value = enrolledSummary(biometrics),
+                isGood = biometrics.capabilities.strongBiometrics ||
+                    biometrics.capabilities.deviceCredential,
+            )
+
             // Verbatim, and the one value here that is read rather than concluded.
             // Whether the service is switched on is otherwise an interpretation,
             // and a wrong interpretation looks exactly like a service that will
@@ -197,6 +232,33 @@ fun DiagnosticsPanel(
                 )
             }
         }
+    }
+}
+
+/**
+ * The enrolled authenticators as one short line.
+ *
+ * Compact forms rather than the full labels used in the settings dialog: this row
+ * is right-aligned monospace against a fixed-width label, and the long names wrap
+ * into the label column and stop the panel reading as a table.
+ */
+@Composable
+private fun enrolledSummary(biometrics: BiometricUiState): String {
+    val parts = buildList {
+        if (biometrics.capabilities.strongBiometrics) {
+            add(stringResource(R.string.diag_bio_short_strong))
+        }
+        if (biometrics.capabilities.weakBiometrics) {
+            add(stringResource(R.string.diag_bio_short_weak))
+        }
+        if (biometrics.capabilities.deviceCredential) {
+            add(stringResource(R.string.diag_bio_short_credential))
+        }
+    }
+    return if (parts.isEmpty()) {
+        stringResource(R.string.diag_none)
+    } else {
+        parts.joinToString(", ")
     }
 }
 

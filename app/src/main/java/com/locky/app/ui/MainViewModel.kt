@@ -16,6 +16,9 @@ import com.locky.app.admin.LockyAdminReceiver
 import com.locky.app.data.AppRepository
 import com.locky.app.data.InstalledApp
 import com.locky.app.data.InstalledAppsLoader
+import com.locky.app.security.BiometricCapabilities
+import com.locky.app.security.BiometricHardware
+import com.locky.app.security.BiometricPreference
 import com.locky.app.security.BiometricUnlock
 import com.locky.app.security.ReLockOption
 import com.locky.app.security.ReLockPolicy
@@ -49,6 +52,35 @@ data class SetupState(
      */
     val isComplete: Boolean
         get() = isDeviceAdminGranted && isAccessibilityGranted && isPinSet
+}
+
+/**
+ * What the phone can unlock with, and what Locky has been told to accept.
+ *
+ * Both halves are shown rather than acted on, because the answer to "why is face
+ * unlock not coming up" is almost always one of: the sensor is Class 2, or nothing
+ * is enrolled. Those look identical from the lock screen — a button that is either
+ * absent or does nothing — and they need opposite fixes.
+ */
+data class BiometricUiState(
+    val allowsWeak: Boolean = false,
+    val capabilities: BiometricCapabilities = BiometricCapabilities(
+        strongBiometrics = false,
+        weakBiometrics = false,
+        deviceCredential = false,
+    ),
+    val hasFaceSensor: Boolean = false,
+    val hasFingerprintSensor: Boolean = false,
+) {
+    /**
+     * True when accepting a weak biometric is the only way to use one at all.
+     *
+     * Gated on this rather than shown always: with a strong biometric enrolled the
+     * prompt already uses it, and with nothing enrolled there is nothing to accept.
+     * Either way the switch would be a control over nothing.
+     */
+    val needsWeakDecision: Boolean
+        get() = capabilities.faceNeedsWeakerBiometrics
 }
 
 /** Everything the apps screen renders, in one immutable value. */
@@ -127,6 +159,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isBiometricAvailable: Boolean
         get() = BiometricUnlock.isAvailable(getApplication())
 
+    /** Bumped when the weak-biometric choice changes, to republish [biometrics]. */
+    private val biometricTicker = MutableStateFlow(0)
+
+    /**
+     * The device's biometric situation, republished on demand.
+     *
+     * Re-read on its own ticker rather than folded into [setupState] because
+     * enrollment can change in system settings while the app is backgrounded, and
+     * the user is sent there to change it. Republished on the next refresh rather
+     * than on every frame, because each call talks to the biometric service.
+     */
+    val biometrics: StateFlow<BiometricUiState> = biometricTicker
+        .map { readBiometricState() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BiometricUiState())
+
+    private fun readBiometricState(): BiometricUiState {
+        val context = getApplication<Application>()
+        return BiometricUiState(
+            allowsWeak = BiometricPreference.allowsWeakBiometrics(context),
+            capabilities = BiometricUnlock.capabilities(context),
+            hasFaceSensor = BiometricHardware.hasFace(context),
+            hasFingerprintSensor = BiometricHardware.hasFingerprint(context),
+        )
+    }
+
+    /**
+     * Records whether Locky will accept a Class 2 biometric.
+     *
+     * No grace periods are dropped here, unlike the re-lock setting: this governs
+     * how the *next* unlock is verified rather than how long the last one lasts,
+     * so an app already unlocked does not need re-gating for the change to be
+     * visible.
+     */
+    fun setAllowsWeakBiometrics(allows: Boolean) {
+        BiometricPreference.setAllowsWeakBiometrics(getApplication(), allows)
+        biometricTicker.value += 1
+    }
+
     /**
      * Why Locky is not protecting anything, or null when it is.
      *
@@ -175,6 +245,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Re-read grants and the app list; call after returning from Settings. */
     fun refresh() {
         setupTicker.value += 1
+        // The user is most often sent out to Settings to switch a fingerprint on or
+        // set up a face, so the enrollment reading has to be taken again too.
+        biometricTicker.value += 1
         viewModelScope.launch { loadInstalledApps() }
     }
 
