@@ -77,8 +77,11 @@ class UnlockState(
             instance ?: synchronized(this) {
                 instance ?: run {
                     val appContext = context.applicationContext
-                    UnlockState { ReLockPolicy.graceMillis(appContext) }
-                        .also { instance = it }
+                    // Named, not a trailing lambda: a trailing one would bind to
+                    // `clock`, the last parameter, and leave the period unset.
+                    UnlockState(
+                        graceMillis = { ReLockPolicy.graceMillis(appContext) },
+                    ).also { instance = it }
                 }
             }
     }
