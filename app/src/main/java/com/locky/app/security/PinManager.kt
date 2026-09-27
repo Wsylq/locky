@@ -23,6 +23,17 @@ class PinManager(context: Context) {
     val isPinSet: Boolean
         get() = prefs.contains(KEY_SALT) && prefs.contains(KEY_HASH)
 
+    /**
+     * How many digits the stored PIN has, or null if it was set before this was
+     * recorded.
+     *
+     * The length is not a secret — the salt and the PBKDF2 work are what protect
+     * the PIN — and knowing it is what lets the lock screen tell a complete PIN
+     * from a partial one instead of guessing.
+     */
+    val pinLength: Int?
+        get() = prefs.getInt(KEY_LENGTH, 0).takeIf { it > 0 }
+
     /** Stores [pin], replacing any previous value. */
     fun setPin(pin: String) {
         val salt = ByteArray(SALT_BYTES).also(SecureRandom()::nextBytes)
@@ -30,6 +41,7 @@ class PinManager(context: Context) {
         prefs.edit()
             .putString(KEY_SALT, salt.toHex())
             .putString(KEY_HASH, hash.toHex())
+            .putInt(KEY_LENGTH, pin.length)
             .apply()
     }
 
@@ -64,6 +76,7 @@ class PinManager(context: Context) {
         const val PREFS_NAME = "locky_pin"
         const val KEY_SALT = "pin_salt"
         const val KEY_HASH = "pin_hash"
+        const val KEY_LENGTH = "pin_length"
 
         const val KEY_ALGORITHM = "PBKDF2WithHmacSHA256"
         const val ITERATIONS = 120_000

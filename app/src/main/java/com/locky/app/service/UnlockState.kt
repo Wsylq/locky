@@ -1,6 +1,7 @@
 package com.locky.app.service
 
 import android.content.Context
+import com.locky.app.security.AttemptLimiter
 import com.locky.app.security.ReLockPolicy
 import java.util.concurrent.ConcurrentHashMap
 
@@ -54,6 +55,16 @@ class UnlockState(
     fun grant(packageName: String) {
         authenticated = packageName
         deadlines[packageName] = clock() + graceMillis()
+
+        // Every successful unlock clears the failure count, whichever way the user
+        // got in. It used to be done on the keypad path only, so failures racked up
+        // across a session in which the user then switched to biometrics and never
+        // touched the PIN again — and the count kept climbing until it tripped a
+        // cool-out on an unlock the user considered successful. Worse, the
+        // biometric prompt is suppressed during a cool-off, so they were left with
+        // nothing but the keypad and a countdown. Done here so no new unlock path
+        // can forget it.
+        AttemptLimiter.shared().onSuccess()
     }
 
     /**

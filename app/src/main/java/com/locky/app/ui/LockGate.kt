@@ -137,12 +137,24 @@ fun LockGate(
         if (biometricsAvailable && !attemptLimiter.isLockedOut) onUseBiometrics()
     }
 
-    // Auto-submit once the PIN reaches a plausible length, which is what people
-    // expect from a four-to-eight digit code.
-    LaunchedEffect(pin) {
-        if (pin.length >= MIN_PIN_LENGTH && !isBusy) {
+    // Auto-submit once the PIN is complete, which is what people expect from a
+    // code rather than a password.
+    //
+    // Keyed on the PIN's real length, not on the shortest one the app accepts. The
+    // old heuristic submitted as soon as four digits were in, so any PIN longer
+    // than that was submitted truncated and came back wrong every single time — a
+    // 120ms pause part-way through six digits was enough, which is a very natural
+    // way to type. Five of those is a 30-second cool-off entered with a perfectly
+    // correct PIN, and nothing about it looks like a mistyped code.
+    //
+    // Null length means the PIN predates this being recorded, and then nothing is
+    // auto-submitted: the Unlock button is the safe direction to be wrong in.
+    val expectedLength = remember(context) { LockyApp.from(context).pinManager.pinLength }
+    LaunchedEffect(pin, expectedLength) {
+        val complete = expectedLength
+        if (complete != null && pin.length == complete && !isBusy) {
             delay(AUTO_SUBMIT_DELAY_MILLIS)
-            if (pin.length >= MIN_PIN_LENGTH) submit()
+            if (pin.length == complete) submit()
         }
     }
 

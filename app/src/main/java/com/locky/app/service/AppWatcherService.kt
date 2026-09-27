@@ -172,17 +172,36 @@ class AppWatcherService : AccessibilityService() {
         // re-trigger itself in a loop.
         if (packageName == this.packageName) return
 
+        // Foreground events raised while the biometric prompt is on screen belong
+        // to the prompt or to Locky's own transparent host, not to the user
+        // navigating. The prompt is modal, so nothing they do during it can move
+        // them elsewhere, and acting on these events takes the lock down the
+        // moment the prompt appears — leaving them in an unlocked app the moment
+        // they cancel. Ignored before anything else, including the latch below,
+        // so the prompt closing cannot be mistaken for leaving the app.
+        if (biometricInFlight.get()) return
+
+        // Asked about every foreground event, not only the protected ones.
+        //
+        // Dismissing the lock re-exposes the app underneath as the foreground
+        // window, which the watcher cannot tell apart from the user opening that
+        // app again. Gating on it makes a zero-second grace period an inescapable
+        // loop: unlock, the app reclaims the foreground, ask again, forever. It
+        // also stops an activity change inside an app already in use — a share
+        // sheet, a dialog belonging to that app — from re-locking the user.
+        //
+        // Answering only for protected apps would leave the latch set forever, and
+        // that is worse: step through the launcher or a share sheet and the app
+        // would never be gated again, whatever the re-lock setting says.
+        if (unlockState.isAuthenticatedAndPresent(packageName)) {
+            Log.i(TAG, "$packageName is the app just authenticated for; not gating again")
+            return
+        }
+
         val target = protectedApps[packageName]
         val window = overlay
 
         if (target == null) {
-            // Events raised while Locky's own biometric prompt is on screen are
-            // not the user navigating anywhere — the prompt is a system window and
-            // brings its own foreground event. Dismissing the lock on it would
-            // tear the gate down mid-prompt, so cancelling the prompt would leave
-            // the user looking at an unlocked app. Ignored outright.
-            if (biometricInFlight.get()) return
-
             // Nothing to gate. This is the normal case for the launcher, the
             // shade, and Settings, but it is also what happens when the cache is
             // empty and every app looks unprotected, so it is worth counting.
@@ -217,15 +236,6 @@ class AppWatcherService : AccessibilityService() {
         }
 
         unprotectedForeground = 0
-
-        // The app the user just authenticated for, reclaiming the foreground now
-        // that the lock is out of the way. Gating on this would make a zero-second
-        // grace period an inescapable loop: unlock, the app reclaims the
-        // foreground, ask again, forever.
-        if (unlockState.isAuthenticatedAndPresent(packageName)) {
-            Log.i(TAG, "$packageName is the app just authenticated for; not gating again")
-            return
-        }
 
         if (unlockState.isUnlocked(packageName)) {
             Log.i(TAG, "$packageName already unlocked, letting it through")

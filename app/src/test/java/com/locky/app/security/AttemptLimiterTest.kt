@@ -1,5 +1,6 @@
 package com.locky.app.security
 
+import com.locky.app.service.UnlockState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -79,5 +80,22 @@ class AttemptLimiterTest {
         // The fallback lock screen is a new activity on every launch, so this is
         // the property that stops a cool-out being reset by reopening the app.
         assertTrue(AttemptLimiter.shared() === AttemptLimiter.shared())
+    }
+
+    @Test
+    fun `granting an unlock clears the shared limiter`() {
+        // Failures used to be cleared only on the keypad path, so a user who
+        // mistyped a few times and then switched to biometrics kept the count
+        // climbing across unlocks they considered successful — until it tripped a
+        // cool-out, which in turn suppresses the biometric prompt and leaves them
+        // with nothing but the keypad and a countdown. Every successful unlock
+        // goes through UnlockState.grant, so the reset lives there.
+        val shared = AttemptLimiter.shared()
+        repeat(4) { shared.onFailure() }
+
+        UnlockState(graceMillis = 60_000L).grant("com.example.chat")
+
+        assertEquals(AttemptLimiter.DEFAULT_MAX_ATTEMPTS, shared.remainingAttempts)
+        assertFalse(shared.isLockedOut)
     }
 }
