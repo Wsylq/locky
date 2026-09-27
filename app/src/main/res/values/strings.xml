@@ -18,13 +18,15 @@
     <string name="action_grant">Grant</string>
     <string name="action_grant_optional">Grant (recommended)</string>
     <string name="action_reenable_service">Re-enable Locky</string>
+    <string name="action_restart_service">Turn it off and on</string>
 
     <!-- Shown when Locky is fully set up but is not actually locking anything. -->
     <string name="warning_not_protecting_title">Locky is not locking anything</string>
     <string name="warning_not_protecting_short">Not protecting apps</string>
     <string name="warning_service_not_enabled">Locky cannot see which apps you open until its service is switched on. Android turns it off every time Locky is updated or reinstalled, so this needs doing once after each install.</string>
-    <string name="warning_service_stopped">Everything is set up, but the Locky service is not running. Android switches it off every time the app is updated or reinstalled.</string>
+    <string name="warning_service_stopped">The Locky service is switched on in Settings, but Android has not actually started it. This is a state Android sometimes gets into after an update, and it means nothing is being locked — the switch being on is not enough on its own.</string>
     <string name="warning_find_service">In Settings, open Accessibility, then Installed services, and switch on “%1$s”. It is not listed under the name “Locky”.</string>
+    <string name="warning_find_service_switch">In Settings, open Accessibility, then Installed services, find “%1$s”, turn it off, wait a moment, then turn it back on. That is what makes Android start it.</string>
     <string name="diag_watcher_error">Watcher error: %1$s</string>
     <string name="warning_no_protected_apps">The Locky service is running, but no apps are marked as protected. Scroll down to the app list and switch on any app you want locked.</string>
     <string name="warning_watcher_failed">The Locky service is running but hit an error, so it cannot lock anything yet. Reopen the app; if it keeps happening, reinstall Locky.</string>

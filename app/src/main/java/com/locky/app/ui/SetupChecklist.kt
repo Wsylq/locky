@@ -224,14 +224,23 @@ private fun RuntimeWarning(
             // Both service problems are fixed in Settings, and both need the user
             // to find a switch labelled "Locky app lock" rather than "Locky" —
             // which is the most common reason this step gets abandoned.
-            val needsSettings = problem == LockyRuntime.Problem.SERVICE_NOT_ENABLED ||
-                problem == LockyRuntime.Problem.SERVICE_STOPPED
+            val isStopped = problem == LockyRuntime.Problem.SERVICE_STOPPED
+            val needsSettings = isStopped ||
+                problem == LockyRuntime.Problem.SERVICE_NOT_ENABLED
 
             if (needsSettings) {
                 Spacer(Modifier.size(6.dp))
                 Text(
+                    // Different instructions, because the two states are opposite:
+                    // when the service is merely stopped its switch is already on,
+                    // and telling someone to switch it on sends them to Settings to
+                    // confirm what they were just shown and leaves them stuck.
                     text = stringResource(
-                        R.string.warning_find_service,
+                        if (isStopped) {
+                            R.string.warning_find_service_switch
+                        } else {
+                            R.string.warning_find_service
+                        },
                         stringResource(R.string.accessibility_service_label),
                     ),
                     style = MaterialTheme.typography.bodySmall,
@@ -239,7 +248,15 @@ private fun RuntimeWarning(
                 )
                 Spacer(Modifier.size(8.dp))
                 OutlinedButton(onClick = onFix) {
-                    Text(stringResource(R.string.action_reenable_service))
+                    Text(
+                        stringResource(
+                            if (isStopped) {
+                                R.string.action_restart_service
+                            } else {
+                                R.string.action_reenable_service
+                            },
+                        ),
+                    )
                 }
             }
         }
