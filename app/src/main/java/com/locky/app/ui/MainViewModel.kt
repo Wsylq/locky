@@ -209,6 +209,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Ends every grace period, so the next protected app open asks again. */
     fun lockAllNow() {
         UnlockState.get(getApplication()).revokeAll()
+        // Also drop the just-unlocked suppression. Without this, an app that was
+        // unlocked a moment ago would sail through despite the user having just
+        // asked for everything to be locked again.
+        AppWatcherService.clearGateSuppression()
     }
 
     /**

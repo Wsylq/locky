@@ -90,6 +90,15 @@ class AppWatcherService : AccessibilityService() {
     private var fallbackActive = false
 
     /**
+     * Stops the lock re-gating the app it just unlocked.
+     *
+     * Process-wide rather than per-instance because the unlock happens in the
+     * overlay or the biometric host while the check happens here, and both have to
+     * be talking about the same thing.
+     */
+    private val gateSuppression = GateSuppression()
+
+    /**
      * Count of consecutive foreground apps that were not protected.
      *
      * Only used for diagnostics: a high value alongside an empty cache is the
@@ -171,6 +180,11 @@ class AppWatcherService : AccessibilityService() {
         // Never gate our own windows: the overlay changing state would otherwise
         // re-trigger itself in a loop.
         if (packageName == this.packageName) return
+
+        // Dismissing the lock hands focus back to the app that was locked, so the
+        // event that arrives next is about an app that was just unlocked. Gating on
+        // it would make the lock unsatisfiable whenever the grace period is short.
+        if (!gateSuppression.shouldGate(packageName)) return
 
         val target = protectedApps[packageName]
         val window = overlay
@@ -356,10 +370,39 @@ class AppWatcherService : AccessibilityService() {
         @Volatile
         private var activeOverlay: LockOverlayController? = null
 
+        /**
+         * Process-wide because the unlock is performed by the overlay or the
+         * biometric host while the check that has to know about it happens in the
+         * service's event callback. Separate from the service instance because
+         * those two live in the same process but not in the same object.
+         */
+        private val gateSuppression = GateSuppression()
+
         fun claimChallenge(): Boolean = challengeInProgress.compareAndSet(false, true)
 
         fun releaseChallenge() {
             challengeInProgress.set(false)
+        }
+
+        /**
+         * Records that [packageName] has just been unlocked.
+         *
+         * Every unlock path calls this alongside releasing the challenge. It is
+         * what stops the window change caused by the lock dismissing itself from
+         * immediately gating the same app again.
+         */
+        fun onGateSatisfied(packageName: String) {
+            if (packageName.isNotEmpty()) gateSuppression.onSatisfied(packageName)
+        }
+
+        /**
+         * Drops any suppression immediately.
+         *
+         * For "lock now": the user has asked for the next protected app to be
+         * gated, so an app unlocked a moment ago must not be quietly let through.
+         */
+        fun clearGateSuppression() {
+            gateSuppression.clear()
         }
 
         /**

@@ -214,6 +214,7 @@ class LockOverlayController(private val context: Context) {
             attemptLimiter = attemptLimiter,
             onUnlocked = { packageName ->
                 UnlockState.get(context).grant(packageName)
+                AppWatcherService.onGateSatisfied(packageName)
                 AppWatcherService.releaseChallenge()
                 hide()
             },

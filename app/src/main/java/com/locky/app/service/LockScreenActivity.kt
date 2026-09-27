@@ -71,6 +71,7 @@ class LockScreenActivity : FragmentActivity() {
         if (packageName.isEmpty()) return
         didUnlock = true
         UnlockState.get(this).grant(packageName)
+        AppWatcherService.onGateSatisfied(packageName)
         AppWatcherService.releaseChallenge()
         finish()
     }

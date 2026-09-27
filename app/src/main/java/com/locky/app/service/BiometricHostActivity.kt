@@ -42,6 +42,7 @@ class BiometricHostActivity : FragmentActivity() {
             subtitle = getString(R.string.pin_prompt_subtitle, appLabel),
             onSuccess = {
                 UnlockState.get(this).grant(packageName)
+                AppWatcherService.onGateSatisfied(packageName)
                 AppWatcherService.overlay()?.hide()
                 AppWatcherService.releaseChallenge()
                 finish()

@@ -43,7 +43,7 @@
     <string name="action_retry">Try again</string>
 
     <!-- How long an app stays unlocked after a successful unlock -->
-    <string name="relock_immediately">Every time, no grace period</string>
+    <string name="relock_immediately">Every time an app is opened</string>
     <string name="relock_seconds_15">15 seconds</string>
     <string name="relock_seconds_30">30 seconds</string>
     <string name="relock_minute_1">1 minute</string>
