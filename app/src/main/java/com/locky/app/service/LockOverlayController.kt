@@ -65,10 +65,11 @@ class LockOverlayController(private val context: Context) {
     private var target: OverlayTarget? by mutableStateOf(null)
 
     /**
-     * Failed PIN attempts, deliberately shared across shows so the lock-out
-     * cannot be reset by simply leaving and reopening the gated app.
+     * Failed PIN attempts, deliberately shared across shows and across the
+     * fallback activity, so the lock-out cannot be reset by simply leaving and
+     * reopening the gated app.
      */
-    val attemptLimiter = AttemptLimiter()
+    val attemptLimiter = AttemptLimiter.shared()
 
     val isShowing: Boolean
         get() = root?.visibility == View.VISIBLE

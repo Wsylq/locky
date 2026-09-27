@@ -23,7 +23,10 @@ import com.locky.app.ui.theme.LockyLockTheme
  */
 class LockScreenActivity : FragmentActivity() {
 
-    private val attemptLimiter = AttemptLimiter()
+    // Shared process-wide, not per-activity: this activity is created and
+    // destroyed on every launch, so a fresh limiter here would reset the lock-out
+    // counter each time and make it meaningless.
+    private val attemptLimiter = AttemptLimiter.shared()
 
     private var targetPackage: String = ""
     private var targetLabel: String = ""

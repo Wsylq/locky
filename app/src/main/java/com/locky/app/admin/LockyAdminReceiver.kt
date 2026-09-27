@@ -45,14 +45,6 @@ class LockyAdminReceiver : DeviceAdminReceiver() {
     }
 
     companion object {
-        @Volatile
-        private var instance: LockyAdminReceiver? = null
-
-        fun get(): LockyAdminReceiver =
-            instance ?: synchronized(this) {
-                instance ?: LockyAdminReceiver().also { instance = it }
-            }
-
         fun isAdminActive(context: Context): Boolean {
             val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE)
                     as? DevicePolicyManager
@@ -73,23 +65,5 @@ class LockyAdminReceiver : DeviceAdminReceiver() {
                 DevicePolicyManager.EXTRA_DEVICE_ADMIN,
                 componentName(context),
             )
-
-        /**
-         * Revokes device admin.
-         *
-         * There is no ACTION_REMOVE_DEVICE_ADMIN constant, and the documented
-         * intent-based route only works for receivers that are no longer declared
-         * in the manifest. Since Locky still declares its own receiver, the
-         * reliable way to deactivate is [DevicePolicyManager.removeActiveAdmin].
-         *
-         * That call returns void, so the post-condition is checked here instead of
-         * being taken from the return value. Returns true if admin is now inactive.
-         */
-        fun revokeActiveAdmin(context: Context): Boolean {
-            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE)
-                    as? DevicePolicyManager ?: return false
-            dpm.removeActiveAdmin(componentName(context))
-            return !isAdminActive(context)
-        }
     }
 }

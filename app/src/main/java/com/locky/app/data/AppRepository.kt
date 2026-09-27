@@ -18,16 +18,9 @@ class AppRepository(context: Context) {
     /** The persisted set of protected apps. */
     fun observeLockedApps(): Flow<List<LockedAppEntity>> = dao.observeAll()
 
-    /** One-shot read of the protected set, for reconciliation on startup. */
-    suspend fun getLockedApps(): List<LockedAppEntity> = dao.getAll()
-
     /**
-     * Resolves [packageName] against the persisted set. Used by the UI to drive a
-     * switch without scanning the whole list.
+     * Resolves [packageName] against the persisted set.
      */
-    fun observeIsLocked(packageName: String): Flow<Boolean> =
-        dao.observeIsLocked(packageName)
-
     suspend fun isLocked(packageName: String): Boolean = dao.isLocked(packageName)
 
     suspend fun lock(packageName: String) {
@@ -46,10 +39,17 @@ class AppRepository(context: Context) {
         if (locked) lock(packageName) else unlock(packageName)
     }
 
-    /** Drops rows for apps that are no longer installed. */
-    suspend fun pruneMissingApps(lockedApps: List<LockedAppEntity>) {
-        val installed = loader.load().map { it.packageName }.toHashSet()
-        lockedApps.filterNot { it.packageName in installed }
+    /**
+     * Drops rows for apps that are no longer installed.
+     *
+     * Takes the installed package names rather than resolving them again. The
+     * caller has just loaded the full app list to render the screen, and asking
+     * for it a second time doubled the slowest operation in the app on every
+     * single resume.
+     */
+    suspend fun pruneMissingApps(installedPackages: Set<String>) {
+        dao.getAll()
+            .filterNot { it.packageName in installedPackages }
             .forEach { dao.delete(it.packageName) }
     }
 

@@ -165,9 +165,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isLoading.value = true
         errorMessage.value = null
         try {
-            installed.value = loader.load()
+            val apps = loader.load()
+            installed.value = apps
             // Rows can outlive the apps they describe, so reconcile on the way in.
-            repository.pruneMissingApps(repository.getLockedApps())
+            // Reusing the list just loaded rather than re-reading the package
+            // manager for it a second time.
+            repository.pruneMissingApps(apps.mapTo(mutableSetOf()) { it.packageName })
         } catch (e: Exception) {
             errorMessage.value = e.message ?: e.javaClass.simpleName
         } finally {

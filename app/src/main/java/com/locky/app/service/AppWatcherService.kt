@@ -191,7 +191,17 @@ class AppWatcherService : AccessibilityService() {
             // The overlay is a system window and does not follow the foreground app
             // on its own, so it has to be dismissed explicitly or Locky ends up
             // covering the home screen.
-            if (window?.isShowing == true) window.hide()
+            //
+            // Hiding it must also release the challenge. The overlay claims one
+            // when it goes up, and the only thing that gives it back is this code
+            // path; without the release the flag stays set and claimChallenge()
+            // fails for every launch afterwards, so a single trip through the
+            // launcher would leave Locky permanently unable to gate anything
+            // again with no symptom other than the lock quietly not appearing.
+            if (window?.isShowing == true) {
+                window.hide()
+                releaseChallenge()
+            }
             if (fallbackActive) {
                 fallbackActive = false
                 releaseChallenge()
@@ -203,6 +213,14 @@ class AppWatcherService : AccessibilityService() {
 
         if (unlockState.isUnlocked(packageName)) {
             Log.i(TAG, "$packageName already unlocked, letting it through")
+            // This app is inside its grace period, so nothing should be covering
+            // it. Reaching here with the overlay up means it is still showing for
+            // a different app, and the user would be stuck staring at that app's
+            // lock with no way to dismiss it.
+            if (window?.isShowing == true) {
+                window.hide()
+                releaseChallenge()
+            }
             return
         }
 
@@ -215,15 +233,52 @@ class AppWatcherService : AccessibilityService() {
 
         if (!claimChallenge()) return
 
-        if (window?.isAttached == true) {
+        // Re-checked here rather than reusing `window`, because the overlay
+        // permission can be granted while the service is already running. Doing
+        // this at the point of gating rather than only at connect time is what
+        // makes the app switch to the instant lock without the user having to
+        // toggle the accessibility service off and on again first.
+        val gate = overlayForGating()
+        if (gate?.isAttached == true) {
             // The fast path: the window already exists and is attached, so this
             // is only a visibility change.
-            window.show(target.packageName, target.label)
+            gate.show(target.packageName, target.label)
         } else {
             // No overlay permission. Fall back to a real activity so the app is
             // still locked, accepting the slower transition.
             launchFallback(target)
         }
+    }
+
+    /**
+     * The overlay to gate with, building it if it is not there yet.
+     *
+     * Normally this is the window created once at service connect, and the call
+     * returns it without doing any work — one field read on the path between an
+     * app appearing and the lock covering it. Only when there is no window does
+     * it retry, which is the case where the overlay permission was granted after
+     * the service connected. Retrying there costs one Settings read and, at most,
+     * one view inflation, and it happens on a path that would otherwise be using
+     * the slow activity gate anyway.
+     */
+    private fun overlayForGating(): LockOverlayController? {
+        overlay?.let { return it }
+        if (!isReady) return null
+
+        val created = runCatching {
+            LockOverlayController(this).also { it.attach() }
+        }.getOrElse { e ->
+            Log.e(TAG, "overlay could not be created; using the full screen gate", e)
+            null
+        } ?: return null
+
+        if (!created.isAttached) return null
+
+        overlay = created
+        activeOverlay = created
+        LockyRuntime.onOverlayAttached()
+        Log.i(TAG, "overlay attached on demand")
+        return created
     }
 
     /** Starts the activity-based gate for when the overlay cannot be used. */

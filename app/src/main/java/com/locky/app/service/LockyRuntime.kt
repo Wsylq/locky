@@ -95,6 +95,18 @@ object LockyRuntime {
         _status.value = _status.value.copy(protectedAppCount = count)
     }
 
+    /**
+     * Records that the overlay window became usable after service connect.
+     *
+     * Separate from [onServiceConnected] because that resets the counters, and
+     * the overlay can be built later than that: the "display over other apps"
+     * permission may be granted while the service is already running, in which
+     * case the window is only created when something first needs gating.
+     */
+    internal fun onOverlayAttached() {
+        _status.value = _status.value.copy(isOverlayAttached = true)
+    }
+
     internal fun onForegroundEvent(packageName: String) {
         _status.value = _status.value.copy(
             foregroundEventCount = eventCount.incrementAndGet(),

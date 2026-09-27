@@ -43,12 +43,29 @@ class AttemptLimiter(
         lockedUntil = 0L
     }
 
-    fun reset() {
-        onSuccess()
-    }
-
-    private companion object {
+    companion object {
         const val DEFAULT_MAX_ATTEMPTS = 5
         const val DEFAULT_LOCKOUT_MILLIS = 30_000L
+
+        @Volatile
+        private var shared: AttemptLimiter? = null
+
+        /**
+         * The limiter the real lock screens use.
+         *
+         * Process-wide rather than per-instance, and the fallback path depends on
+         * it: [com.locky.app.service.LockScreenActivity] is created and destroyed
+         * every time a protected app is opened, so a per-instance limiter would
+         * hand out a fresh set of attempts each time — the cool-off would be
+         * trivially bypassed by closing the app and opening it again. The overlay
+         * needs the same property for the same reason.
+         *
+         * The primary constructor stays public so tests can supply their own clock
+         * and limits without touching the shared instance.
+         */
+        fun shared(): AttemptLimiter =
+            shared ?: synchronized(this) {
+                shared ?: AttemptLimiter().also { shared = it }
+            }
     }
 }

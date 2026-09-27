@@ -71,28 +71,4 @@ class InstalledAppsLoader(private val context: Context) {
             packageName
         }
     }
-
-    /** The user-visible name of an installed package, or null if it is gone. */
-    fun peekLabel(packageName: String): String? = try {
-        val pm = context.packageManager
-        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
-    } catch (e: PackageManager.NameNotFoundException) {
-        null
-    }
-
-    /**
-     * The launcher icon for a package, resolved off the main thread.
-     *
-     * Only used by the settings list, which already loads every icon at once.
-     * The accessibility service deliberately does not call this: the lock screen
-     * shows no icon, and this call is one of the more failure-prone in the
-     * platform, so on the gating path it is a risk with no benefit.
-     */
-    suspend fun iconFor(packageName: String): Drawable? = withContext(Dispatchers.IO) {
-        try {
-            context.packageManager.getApplicationIcon(packageName)
-        } catch (e: PackageManager.NameNotFoundException) {
-            null
-        }
-    }
 }

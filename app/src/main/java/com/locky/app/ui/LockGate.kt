@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,16 +68,30 @@ fun LockGate(
     var error by remember { mutableStateOf<String?>(null) }
     var isBusy by remember { mutableStateOf(false) }
 
+    // A one-second heartbeat, purely to drive recomposition.
+    //
+    // AttemptLimiter is plain in-memory state with nothing to observe it, so a
+    // cool-off that is counting down would never cause a recomposition and the
+    // time remaining would sit frozen at whatever it read when the lock-out
+    // began — telling someone to wait 0:30 for the whole half minute. Recomputing
+    // the remaining time on a key that changes is what makes it count down. The
+    // lock screen is small and its composition is discarded the moment the overlay
+    // hides, so a 1 Hz recomposition while a lock is on screen costs nothing.
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000)
+            tick++
+        }
+    }
+
     fun submit() {
         if (isBusy) return
 
-        if (attemptLimiter.isLockedOut) {
-            error = context.getString(
-                R.string.pin_locked_out,
-                formatCountdown(attemptLimiter.lockoutRemainingMillis),
-            )
-            return
-        }
+        // Nothing to say here: while a cool-off is running the message shown is
+        // derived from the limiter on every recomposition, so the user already
+        // sees the countdown and the reason it is not accepting input.
+        if (attemptLimiter.isLockedOut) return
 
         isBusy = true
         scope.launch {
@@ -107,22 +122,41 @@ fun LockGate(
         }
     }
 
-    // Count a visible cool-down down to zero so the user can see it expiring.
-    LaunchedEffect(attemptLimiter.isLockedOut) {
+    // Clear the message that caused the lock-out once it expires. Without this the
+    // "wrong PIN" text the user was last shown would reappear the moment the
+    // cool-out ended, implying they had just tried again.
+    //
+    // Edged rather than level-triggered: clearing on every tick where no lock-out
+    // is running would wipe the "wrong PIN" message a second after it appeared.
+    var wasLockedOut by remember { mutableStateOf(false) }
+    LaunchedEffect(tick) {
         if (attemptLimiter.isLockedOut) {
-            while (attemptLimiter.isLockedOut) delay(1_000)
+            wasLockedOut = true
+        } else if (wasLockedOut) {
+            wasLockedOut = false
+            error = null
         }
-        error = null
+    }
+
+    // Keyed on the heartbeat so the value is re-read as the cool-off runs down.
+    val lockoutRemaining: Long = remember(tick) { attemptLimiter.lockoutRemainingMillis }
+
+    // The cool-off message is built here rather than stored in `error`, so the
+    // time left is read on every recomposition. Storing it would freeze the text
+    // at the value it had when the lock-out started.
+    val shownError = if (attemptLimiter.isLockedOut) {
+        context.getString(R.string.pin_locked_out, formatCountdown(lockoutRemaining))
+    } else {
+        error
     }
 
     PinEntryScreen(
         appLabel = appLabel,
         pin = pin,
-        errorMessage = error,
+        errorMessage = shownError,
         isBusy = isBusy,
         remainingAttempts = attemptLimiter.remainingAttempts,
         isLockedOut = attemptLimiter.isLockedOut,
-        lockoutMillis = attemptLimiter.lockoutRemainingMillis,
         onDigit = { digit ->
             if (!isBusy && pin.length < MAX_PIN_LENGTH) {
                 error = null
@@ -149,7 +183,6 @@ fun PinEntryScreen(
     isBusy: Boolean,
     remainingAttempts: Int,
     isLockedOut: Boolean,
-    lockoutMillis: Long,
     onDigit: (Char) -> Unit,
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,

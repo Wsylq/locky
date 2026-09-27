@@ -15,12 +15,6 @@ interface LockedAppDao {
     @Query("SELECT * FROM locked_apps")
     suspend fun getAll(): List<LockedAppEntity>
 
-    @Query("SELECT packageName FROM locked_apps")
-    fun observeLockedPackages(): Flow<List<String>>
-
-    @Query("SELECT EXISTS(SELECT 1 FROM locked_apps WHERE packageName = :packageName)")
-    fun observeIsLocked(packageName: String): Flow<Boolean>
-
     @Query("SELECT EXISTS(SELECT 1 FROM locked_apps WHERE packageName = :packageName)")
     suspend fun isLocked(packageName: String): Boolean
 
