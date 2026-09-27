@@ -33,6 +33,17 @@ object LockyRuntime {
         /** The last package that came to the foreground, for spot-checking. */
         val lastForegroundPackage: String? = null,
         /**
+         * What the watcher did about [lastForegroundPackage].
+         *
+         * The other fields here are all inputs — how many apps are armed, how many
+         * events have arrived, which package was last in front. None of them say
+         * whether the lock was actually raised, and a wrong conclusion about that
+         * is indistinguishable from a working lock. Recording the decision at
+         * every exit from the event callback makes "it did not lock this app"
+         * answerable by reading one line, instead of by inferring it from counts.
+         */
+        val lastDecision: GateDecision? = null,
+        /**
          * Set when the watcher started but could not do its job.
          *
          * Distinct from "not connected" on purpose. Both leave the lock doing
@@ -68,6 +79,41 @@ object LockyRuntime {
 
         /** The service is running but hit an error and cannot gate anything. */
         WATCHER_FAILED,
+    }
+
+    /**
+     * Why the watcher gated an app, or why it did not.
+     *
+     * One value per exit from [AppWatcherService.onAccessibilityEvent], so the
+     * answer covers every way an app can end up not locked. Deliberately includes
+     * the boring reasons: "not protected" and "already unlocked" are the two that
+     * matter most when an app someone is sure they protected opens freely, and
+     * they look identical from the outside.
+     */
+    enum class GateDecision {
+        /** The lock was raised for this app. */
+        GATED,
+
+        /** One of Locky's own windows, so nothing to do. */
+        OWN_WINDOW,
+
+        /** The biometric prompt was on screen, so the event is not the user's. */
+        PROMPT_ON_SCREEN,
+
+        /** The app the user just authenticated for and has not left since. */
+        JUST_AUTHENTICATED,
+
+        /** Not in the protected set: armed under a different name, or not at all. */
+        NOT_PROTECTED,
+
+        /** Protected, but still inside the grace period it was granted. */
+        WITHIN_GRACE,
+
+        /** A lock was already up for another app, so this one retitled it. */
+        RETITLED,
+
+        /** Another gate was already claimed, so nothing could be raised. */
+        ALREADY_GATED,
     }
 
     private val _status = MutableStateFlow(Status())
@@ -112,6 +158,16 @@ object LockyRuntime {
             foregroundEventCount = eventCount.incrementAndGet(),
             lastForegroundPackage = packageName,
         )
+    }
+
+    /**
+     * Records what was done about the app that just came to the foreground.
+     *
+     * Called from the accessibility callback, which runs on the main thread, the
+     * same thread as the rest of this object's writers.
+     */
+    internal fun onGateDecision(decision: GateDecision) {
+        _status.value = _status.value.copy(lastDecision = decision)
     }
 
     internal fun onWatcherError(message: String) {
