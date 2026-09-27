@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
+import android.view.accessibility.AccessibilityServiceInfo
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.locky.app.LockyApp
@@ -90,6 +92,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Bumped when the re-lock period is changed, to republish [relockOption]. */
     private val relockTicker = MutableStateFlow(0)
+
+    /**
+     * The raw enabled-services setting, shown verbatim in the diagnostics panel.
+     *
+     * Tied to the same ticker as [setupState] so both are re-read together after a
+     * trip to Settings.
+     */
+    val enabledServicesRaw: StateFlow<String> = setupTicker
+        .map { readEnabledServicesSetting(getApplication()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
     val setupState: StateFlow<SetupState> = setupTicker
         .map { readSetupState() }
@@ -364,17 +376,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         /**
          * True when Locky's accessibility service is switched on.
          *
-         * There is no public API for this, so the enabled-services setting is read
-         * and matched against the service's flattened component name.
+         * Asked of the framework first, through [AccessibilityManager], rather than
+         * by parsing the enabled-services setting. That setting holds a
+         * colon-separated list of flattened component names whose exact spelling
+         * varies between Android versions and OEMs, and matching on it reported an
+         * enabled service as disabled — which shows the user an instruction to
+         * switch on a switch that is already on, and leaves them with nothing to
+         * try. Toggling the service in Settings could not fix it, because the
+         * reading was the thing that was wrong.
          */
         fun isAccessibilityServiceEnabled(context: Context): Boolean {
-            val expected = context.packageName + "/" + AppWatcherService::class.java.name
-            val enabled = Settings.Secure.getString(
+            val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE)
+                as? AccessibilityManager
+
+            if (manager != null) {
+                val enabled = manager.getEnabledAccessibilityServiceList(
+                    AccessibilityServiceInfo.FEEDBACK_ALL_MASK,
+                )
+                // Matched on package alone: the framework has already resolved
+                // these to real services belonging to this app, so there is nothing
+                // to disambiguate and no component string to get wrong.
+                if (enabled.orEmpty().any { it.resolveInfo?.serviceInfo?.packageName == context.packageName }) {
+                    return true
+                }
+            }
+
+            // Fallback for the case where the manager is unavailable or reports
+            // nothing. Only the part before the slash is compared, so both
+            // "package/class" and any shortened form still match.
+            return readEnabledServicesSetting(context).split(':').any { entry ->
+                entry.substringBefore('/').equals(context.packageName, ignoreCase = true)
+            }
+        }
+
+        /**
+         * The raw enabled-services setting, for the diagnostics panel.
+         *
+         * Shown verbatim so this can be settled by looking at it. Every other
+         * signal in the app is a conclusion, and a wrong conclusion about whether
+         * the service is on is indistinguishable from a service that will not
+         * start.
+         */
+        fun readEnabledServicesSetting(context: Context): String =
+            Settings.Secure.getString(
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-            ).orEmpty()
-
-            return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
-        }
+            ).orEmpty().ifEmpty { "(empty)" }
     }
 }

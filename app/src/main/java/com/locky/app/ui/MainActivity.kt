@@ -95,6 +95,7 @@ private fun MainScreen(
     val warning by viewModel.protectionWarning.collectAsStateWithLifecycle()
     val runtime by viewModel.runtimeStatus.collectAsStateWithLifecycle()
     val protectedCountInUi by viewModel.protectedCountInUi.collectAsStateWithLifecycle()
+    val enabledServicesRaw by viewModel.enabledServicesRaw.collectAsStateWithLifecycle()
     val testResult by viewModel.testResult.collectAsStateWithLifecycle()
     val relockOption by viewModel.relockOption.collectAsStateWithLifecycle()
     var showPinSetup by remember { mutableStateOf(false) }
@@ -180,6 +181,7 @@ private fun MainScreen(
             DiagnosticsPanel(
                 runtime = runtime,
                 protectedCountInUi = protectedCountInUi,
+                enabledServicesRaw = enabledServicesRaw,
                 testResult = testResult,
                 onTestOverlay = viewModel::testOverlay,
                 onTestFullScreen = viewModel::testFullScreenLock,

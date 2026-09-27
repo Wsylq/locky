@@ -45,6 +45,7 @@ import com.locky.app.service.LockyRuntime
 fun DiagnosticsPanel(
     runtime: LockyRuntime.Status,
     protectedCountInUi: Int,
+    enabledServicesRaw: String,
     testResult: String?,
     onTestOverlay: () -> Unit,
     onTestFullScreen: () -> Unit,
@@ -119,6 +120,17 @@ fun DiagnosticsPanel(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
+
+            // Verbatim, and the one value here that is read rather than concluded.
+            // Whether the service is switched on is otherwise an interpretation,
+            // and a wrong interpretation looks exactly like a service that will
+            // not start. Shown so it can be read off the screen directly.
+            Text(
+                text = stringResource(R.string.diag_enabled_services, enabledServicesRaw),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             if (runtime.lastForegroundPackage != null) {
                 Text(

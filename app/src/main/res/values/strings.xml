@@ -66,6 +66,7 @@
     <string name="diag_ready">Ready</string>
     <string name="diag_unavailable">Using full screen</string>
     <string name="diag_last_seen">Last app seen: %1$s</string>
+    <string name="diag_enabled_services">Android has enabled: %1$s</string>
     <string name="diag_tests_help">These two show the PIN screen without opening an app, so they test the lock itself rather than app detection.</string>
     <string name="diag_test_overlay">Test instant lock</string>
     <string name="diag_test_full_screen">Test full-screen lock</string>
