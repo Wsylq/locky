@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.locky.app.LockyApp
 import com.locky.app.R
 import com.locky.app.security.AttemptLimiter
+import com.locky.app.security.BiometricUnlock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,6 +65,12 @@ fun LockGate(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Whether the device has a secure screen lock to fall back on, which is what
+    // makes the fingerprint or face prompt available at all. Resolved once per
+    // gate: it talks to the framework, and the answer cannot change while a lock
+    // is on screen.
+    val biometricsAvailable = remember(context) { BiometricUnlock.isAvailable(context) }
 
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -113,6 +121,22 @@ fun LockGate(
         }
     }
 
+    // Offer biometrics straight away, once, when they are available.
+    //
+    // Someone who has already set a screen lock should not have to reach past a
+    // keypad for a fingerprint prompt, so it is the default path rather than an
+    // extra button. Keyed on the app being gated because the overlay reuses this
+    // composition for each new app, and shown only once: if the user cancels or
+    // fails, the keypad is right there and nothing re-triggers it.
+    //
+    // The cool-out check is load-bearing. A successful biometric grants a grace
+    // period without consulting the limiter, so raising the prompt during a
+    // lock-out would be a way straight past it — the button below is disabled in
+    // the same situation for the same reason.
+    LaunchedEffect(packageName, biometricsAvailable) {
+        if (biometricsAvailable && !attemptLimiter.isLockedOut) onUseBiometrics()
+    }
+
     // Auto-submit once the PIN reaches a plausible length, which is what people
     // expect from a four-to-eight digit code.
     LaunchedEffect(pin) {
@@ -155,6 +179,7 @@ fun LockGate(
         pin = pin,
         errorMessage = shownError,
         isBusy = isBusy,
+        biometricsAvailable = biometricsAvailable,
         remainingAttempts = attemptLimiter.remainingAttempts,
         isLockedOut = attemptLimiter.isLockedOut,
         onDigit = { digit ->
@@ -181,6 +206,7 @@ fun PinEntryScreen(
     pin: String,
     errorMessage: String?,
     isBusy: Boolean,
+    biometricsAvailable: Boolean,
     remainingAttempts: Int,
     isLockedOut: Boolean,
     onDigit: (Char) -> Unit,
@@ -205,7 +231,11 @@ fun PinEntryScreen(
         Spacer(Modifier.height(16.dp))
 
         Text(
-            text = stringResource(R.string.pin_prompt_title),
+            // "Enter your PIN" would be the wrong headline when the fingerprint is
+            // the intended way in and the keypad is the fallback.
+            text = stringResource(
+                if (biometricsAvailable) R.string.lock_title else R.string.pin_prompt_title,
+            ),
             style = MaterialTheme.typography.headlineSmall,
         )
 
@@ -217,6 +247,27 @@ fun PinEntryScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+
+        // Biometrics first and filled, above the dots: the primary way through this
+        // screen. The keypad stays below it as the fallback for a failed or
+        // cancelled prompt, and a cool-out.
+        if (biometricsAvailable) {
+            Spacer(Modifier.height(24.dp))
+
+            Button(
+                onClick = onUseBiometrics,
+                enabled = !isBusy && !isLockedOut,
+                modifier = Modifier.fillMaxWidth(0.8f),
+            ) {
+                Icon(
+                    imageVector = LockyIcons.Fingerprint,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.size(10.dp))
+                Text(stringResource(R.string.action_use_biometrics))
+            }
+        }
 
         Spacer(Modifier.height(28.dp))
 
@@ -264,19 +315,6 @@ fun PinEntryScreen(
             enabled = !isBusy && pin.length >= MIN_PIN_LENGTH && !isLockedOut,
         ) {
             Text(stringResource(R.string.action_unlock))
-        }
-
-        TextButton(
-            onClick = onUseBiometrics,
-            enabled = !isBusy && !isLockedOut,
-        ) {
-            Icon(
-                imageVector = LockyIcons.Fingerprint,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.size(8.dp))
-            Text(stringResource(R.string.action_use_biometrics))
         }
     }
 }

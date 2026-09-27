@@ -6,6 +6,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.locky.app.R
 import java.util.concurrent.Executor
 
 /**
@@ -59,13 +60,22 @@ object BiometricUnlock {
             },
         )
 
-        prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
-                .setTitle(title)
-                .setSubtitle(subtitle)
-                .setAllowedAuthenticators(AUTHENTICATORS)
-                .build(),
-        )
+        // The prompt is now raised without the user asking for it, so it has to
+        // survive being called a moment too early: BiometricPrompt throws if the
+        // host activity has not resumed yet or has already saved its state. A
+        // failure here must not take the lock screen down with it, so it is
+        // reported and the PIN keypad stays available.
+        runCatching {
+            prompt.authenticate(
+                BiometricPrompt.PromptInfo.Builder()
+                    .setTitle(title)
+                    .setSubtitle(subtitle)
+                    .setAllowedAuthenticators(AUTHENTICATORS)
+                    .build(),
+            )
+        }.onFailure {
+            onError(activity.getString(R.string.biometrics_prompt_failed))
+        }
     }
 
     private const val AUTHENTICATORS =

@@ -37,9 +37,20 @@
     <string name="action_unlock">Unlock</string>
     <string name="action_lock_now">Lock now</string>
     <string name="settings_overlay">Display over other apps</string>
-    <string name="action_use_biometrics">Use biometrics</string>
+    <string name="action_use_biometrics">Unlock with biometrics</string>
     <string name="biometrics_unavailable">Set up a screen lock on this device to unlock with biometrics.</string>
+    <string name="biometrics_prompt_failed">The unlock prompt could not be shown. Use your PIN instead.</string>
     <string name="action_retry">Try again</string>
+
+    <!-- How long an app stays unlocked after a successful unlock -->
+    <string name="relock_immediately">Every time, no grace period</string>
+    <string name="relock_seconds_15">15 seconds</string>
+    <string name="relock_seconds_30">30 seconds</string>
+    <string name="relock_minute_1">1 minute</string>
+    <string name="relock_minutes_5">5 minutes</string>
+    <string name="relock_minutes_15">15 minutes</string>
+    <string name="relock_minutes_30">30 minutes</string>
+    <string name="relock_hour_1">1 hour</string>
 
     <!-- Live status of the watcher; see DiagnosticsPanel -->
     <string name="diag_title">Status</string>
@@ -91,7 +102,7 @@
     <string name="settings_accessibility">Accessibility service</string>
     <string name="settings_change_pin">Change PIN</string>
     <string name="settings_lock_after">Lock again after</string>
-    <string name="settings_lock_after_value">%1$s away</string>
+    <string name="settings_lock_after_value">Re-lock after %1$s</string>
     <string name="settings_about">About Locky</string>
     <string name="settings_version">Version %1$s</string>
     <string name="settings_privacy_body">Locky works entirely on your device. It has no network permission, collects nothing, and sends nothing anywhere.</string>

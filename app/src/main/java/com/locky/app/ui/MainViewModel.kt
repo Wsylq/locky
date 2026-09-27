@@ -15,6 +15,8 @@ import com.locky.app.data.AppRepository
 import com.locky.app.data.InstalledApp
 import com.locky.app.data.InstalledAppsLoader
 import com.locky.app.security.BiometricUnlock
+import com.locky.app.security.ReLockOption
+import com.locky.app.security.ReLockPolicy
 import com.locky.app.service.AppWatcherService
 import com.locky.app.service.LockScreenActivity
 import com.locky.app.service.LockyRuntime
@@ -85,6 +87,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Bumped to force a re-read of grant state after returning from Settings. */
     private val setupTicker = MutableStateFlow(0)
+
+    /** Bumped when the re-lock period is changed, to republish [relockOption]. */
+    private val relockTicker = MutableStateFlow(0)
 
     val setupState: StateFlow<SetupState> = setupTicker
         .map { readSetupState() }
@@ -204,6 +209,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Ends every grace period, so the next protected app open asks again. */
     fun lockAllNow() {
         UnlockState.get(getApplication()).revokeAll()
+    }
+
+    /**
+     * The chosen re-lock period, republished whenever it changes.
+     *
+     * The value lives in a preference file rather than in the view model so that
+     * the watcher and this screen can never disagree about it, but the screen
+     * still needs to be told when it changed, hence the tick.
+     */
+    val relockOption: StateFlow<ReLockOption> = relockTicker
+        .map { ReLockPolicy.current(getApplication()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReLockOption.DEFAULT)
+
+    /**
+     * Saves a new re-lock period and drops any grace period already running.
+     *
+     * Clearing the existing grants is what makes shortening the setting feel like
+     * it worked: without it, an app unlocked a minute ago would keep its original
+     * minute regardless of the user having just chosen "immediately".
+     */
+    fun setRelockOption(option: ReLockOption) {
+        ReLockPolicy.set(getApplication(), option)
+        UnlockState.get(getApplication()).revokeAll()
+        relockTicker.value += 1
     }
 
     // --- Intents into system settings -------------------------------------

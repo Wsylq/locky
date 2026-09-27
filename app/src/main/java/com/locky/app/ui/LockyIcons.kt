@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Android
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -27,4 +28,7 @@ object LockyIcons {
 
     /** "Change PIN" action. */
     val ChangePin: ImageVector = Icons.Filled.Password
+
+    /** "Re-lock after" settings. */
+    val Settings: ImageVector = Icons.Filled.Tune
 }

@@ -96,7 +96,9 @@ private fun MainScreen(
     val runtime by viewModel.runtimeStatus.collectAsStateWithLifecycle()
     val protectedCountInUi by viewModel.protectedCountInUi.collectAsStateWithLifecycle()
     val testResult by viewModel.testResult.collectAsStateWithLifecycle()
+    val relockOption by viewModel.relockOption.collectAsStateWithLifecycle()
     var showPinSetup by remember { mutableStateOf(false) }
+    var showReLock by remember { mutableStateOf(false) }
 
     // The checklist stays visible when setup is finished but the service is not
     // running, because that is when the user most needs to be told something is
@@ -131,6 +133,18 @@ private fun MainScreen(
                         Icon(
                             imageVector = LockyIcons.ChangePin,
                             contentDescription = stringResource(R.string.action_change_pin),
+                        )
+                    }
+                    // The current period is spelled out in the button's label rather
+                    // than left to be discovered inside the dialog, so the setting
+                    // is readable without opening anything.
+                    IconButton(onClick = { showReLock = true }) {
+                        Icon(
+                            imageVector = LockyIcons.Settings,
+                            contentDescription = stringResource(
+                                R.string.settings_lock_after_value,
+                                stringResource(relockOption.labelRes),
+                            ),
                         )
                     }
                 },
@@ -186,6 +200,14 @@ private fun MainScreen(
         PinSetupDialog(
             onDismiss = { showPinSetup = false },
             onConfirm = viewModel::setPin,
+        )
+    }
+
+    if (showReLock) {
+        ReLockDialog(
+            selected = relockOption,
+            onSelect = viewModel::setRelockOption,
+            onDismiss = { showReLock = false },
         )
     }
 }
