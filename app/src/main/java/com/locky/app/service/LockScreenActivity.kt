@@ -71,7 +71,6 @@ class LockScreenActivity : FragmentActivity() {
         if (packageName.isEmpty()) return
         didUnlock = true
         UnlockState.get(this).grant(packageName)
-        AppWatcherService.onGateSatisfied(packageName)
         AppWatcherService.releaseChallenge()
         finish()
     }
@@ -81,21 +80,26 @@ class LockScreenActivity : FragmentActivity() {
         // challenge has to be released or it will refuse to gate anything for the
         // rest of the process's life.
         if (!didUnlock) AppWatcherService.releaseChallenge()
+        AppWatcherService.endBiometric()
         super.onDestroy()
     }
 
     private fun promptForBiometrics() {
-        if (BiometricUnlock.isAvailable(this)) {
-            BiometricUnlock.authenticate(
-                activity = this,
-                title = getString(R.string.pin_prompt_title),
-                subtitle = getString(R.string.pin_prompt_subtitle, targetLabel),
-                onSuccess = { onUnlocked(targetPackage) },
-                onError = ::showMessage,
-            )
-        } else {
+        if (!BiometricUnlock.isAvailable(this)) {
             showMessage(getString(R.string.biometrics_unavailable))
+            return
         }
+        // Same reason as the overlay path: the system prompt is its own foreground
+        // window, and the watcher must not read that as the user leaving the app
+        // they are being let into.
+        AppWatcherService.beginBiometric()
+        BiometricUnlock.authenticate(
+            activity = this,
+            title = getString(R.string.pin_prompt_title),
+            subtitle = getString(R.string.pin_prompt_subtitle, targetLabel),
+            onSuccess = { onUnlocked(targetPackage) },
+            onError = ::showMessage,
+        )
     }
 
     private fun showMessage(message: String) {

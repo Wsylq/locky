@@ -90,15 +90,6 @@ class AppWatcherService : AccessibilityService() {
     private var fallbackActive = false
 
     /**
-     * Stops the lock re-gating the app it just unlocked.
-     *
-     * Process-wide rather than per-instance because the unlock happens in the
-     * overlay or the biometric host while the check happens here, and both have to
-     * be talking about the same thing.
-     */
-    private val gateSuppression = GateSuppression()
-
-    /**
      * Count of consecutive foreground apps that were not protected.
      *
      * Only used for diagnostics: a high value alongside an empty cache is the
@@ -181,15 +172,17 @@ class AppWatcherService : AccessibilityService() {
         // re-trigger itself in a loop.
         if (packageName == this.packageName) return
 
-        // Dismissing the lock hands focus back to the app that was locked, so the
-        // event that arrives next is about an app that was just unlocked. Gating on
-        // it would make the lock unsatisfiable whenever the grace period is short.
-        if (!gateSuppression.shouldGate(packageName)) return
-
         val target = protectedApps[packageName]
         val window = overlay
 
         if (target == null) {
+            // Events raised while Locky's own biometric prompt is on screen are
+            // not the user navigating anywhere — the prompt is a system window and
+            // brings its own foreground event. Dismissing the lock on it would
+            // tear the gate down mid-prompt, so cancelling the prompt would leave
+            // the user looking at an unlocked app. Ignored outright.
+            if (biometricInFlight.get()) return
+
             // Nothing to gate. This is the normal case for the launcher, the
             // shade, and Settings, but it is also what happens when the cache is
             // empty and every app looks unprotected, so it is worth counting.
@@ -224,6 +217,15 @@ class AppWatcherService : AccessibilityService() {
         }
 
         unprotectedForeground = 0
+
+        // The app the user just authenticated for, reclaiming the foreground now
+        // that the lock is out of the way. Gating on this would make a zero-second
+        // grace period an inescapable loop: unlock, the app reclaims the
+        // foreground, ask again, forever.
+        if (unlockState.isAuthenticatedAndPresent(packageName)) {
+            Log.i(TAG, "$packageName is the app just authenticated for; not gating again")
+            return
+        }
 
         if (unlockState.isUnlocked(packageName)) {
             Log.i(TAG, "$packageName already unlocked, letting it through")
@@ -367,42 +369,31 @@ class AppWatcherService : AccessibilityService() {
          */
         private val challengeInProgress = AtomicBoolean(false)
 
+        /**
+         * True from the moment Locky raises the biometric prompt until it closes.
+         *
+         * The prompt is a system dialog, so it produces a foreground window event
+         * of its own. Without this the watcher reads that as the user navigating
+         * away, takes the lock down, and leaves them in an unlocked app the moment
+         * they cancel. Set and cleared by whichever activity is hosting the prompt.
+         */
+        private val biometricInFlight = AtomicBoolean(false)
+
+        internal fun beginBiometric() {
+            biometricInFlight.set(true)
+        }
+
+        internal fun endBiometric() {
+            biometricInFlight.set(false)
+        }
+
         @Volatile
         private var activeOverlay: LockOverlayController? = null
-
-        /**
-         * Process-wide because the unlock is performed by the overlay or the
-         * biometric host while the check that has to know about it happens in the
-         * service's event callback. Separate from the service instance because
-         * those two live in the same process but not in the same object.
-         */
-        private val gateSuppression = GateSuppression()
 
         fun claimChallenge(): Boolean = challengeInProgress.compareAndSet(false, true)
 
         fun releaseChallenge() {
             challengeInProgress.set(false)
-        }
-
-        /**
-         * Records that [packageName] has just been unlocked.
-         *
-         * Every unlock path calls this alongside releasing the challenge. It is
-         * what stops the window change caused by the lock dismissing itself from
-         * immediately gating the same app again.
-         */
-        fun onGateSatisfied(packageName: String) {
-            if (packageName.isNotEmpty()) gateSuppression.onSatisfied(packageName)
-        }
-
-        /**
-         * Drops any suppression immediately.
-         *
-         * For "lock now": the user has asked for the next protected app to be
-         * gated, so an app unlocked a moment ago must not be quietly let through.
-         */
-        fun clearGateSuppression() {
-            gateSuppression.clear()
         }
 
         /**

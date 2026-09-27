@@ -36,13 +36,17 @@ class BiometricHostActivity : FragmentActivity() {
             return
         }
 
+        // Marked for as long as this activity is alive, so the watcher ignores the
+        // foreground events the system prompt raises instead of taking the lock
+        // down the moment the prompt appears.
+        AppWatcherService.beginBiometric()
+
         BiometricUnlock.authenticate(
             activity = this,
             title = getString(R.string.pin_prompt_title),
             subtitle = getString(R.string.pin_prompt_subtitle, appLabel),
             onSuccess = {
                 UnlockState.get(this).grant(packageName)
-                AppWatcherService.onGateSatisfied(packageName)
                 AppWatcherService.overlay()?.hide()
                 AppWatcherService.releaseChallenge()
                 finish()
@@ -53,6 +57,14 @@ class BiometricHostActivity : FragmentActivity() {
                 finish()
             },
         )
+    }
+
+    override fun onDestroy() {
+        // Lifecycle-driven rather than cleared on the way out of the callbacks, so
+        // a cancellation or a configuration change cannot leave the watcher
+        // permanently ignoring foreground events.
+        AppWatcherService.endBiometric()
+        super.onDestroy()
     }
 
     companion object {

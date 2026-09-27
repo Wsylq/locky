@@ -108,4 +108,38 @@ class UnlockStateTest {
         // being retroactively rewritten by the new setting.
         assertTrue(state.isUnlocked("com.example.chat"))
     }
+
+    @Test
+    fun `the app just unlocked is not gated again while it is still in front`() {
+        // Dismissing the lock re-exposes the app underneath as the foreground
+        // window, which looks identical to the user opening it again. With no
+        // grace period at all, re-gating on that event is an inescapable loop:
+        // unlock, the app reclaims the foreground, ask again, forever.
+        val state = UnlockState(graceMillis = 0L, clock = clock)
+        state.grant("com.example.chat")
+
+        assertTrue(state.isAuthenticatedAndPresent("com.example.chat"))
+        // And the grace period is genuinely over, so only the latch is standing in.
+        assertFalse(state.isUnlocked("com.example.chat"))
+    }
+
+    @Test
+    fun `leaving and returning is gated again`() {
+        val state = UnlockState(graceMillis = 0L, clock = clock)
+        state.grant("com.example.chat")
+
+        // The user goes somewhere else, which is what ends the latch.
+        assertFalse(state.isAuthenticatedAndPresent("com.example.launcher"))
+
+        // Coming back must ask again, or "no grace period" would mean "once ever".
+        assertFalse(state.isAuthenticatedAndPresent("com.example.chat"))
+        assertFalse(state.isUnlocked("com.example.chat"))
+    }
+
+    @Test
+    fun `nothing is treated as authenticated before the first unlock`() {
+        val state = UnlockState(graceMillis = 0L, clock = clock)
+
+        assertFalse(state.isAuthenticatedAndPresent("com.example.chat"))
+    }
 }

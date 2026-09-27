@@ -32,9 +32,41 @@ class UnlockState(
 
     private val deadlines = ConcurrentHashMap<String, Long>()
 
+    /**
+     * The app the user has just authenticated for and has not left since.
+     *
+     * Guards against a re-gate that the grace period alone cannot. Dismissing the
+     * lock re-exposes the app underneath as the foreground window, which the
+     * watcher cannot tell apart from the user opening that app again. With a
+     * zero-second grace period that made the lock inescapable — authenticate, the
+     * app reclaims the foreground, ask again, and the user can never get in.
+     *
+     * It also stops an activity change inside an app the user is already using
+     * from re-locking them, which the grace period only covered for its duration.
+     *
+     * Accessed from the accessibility callback and from the unlock handlers, both
+     * on the main thread, so a plain volatile field is enough.
+     */
+    @Volatile
+    private var authenticated: String? = null
+
     /** Records a successful unlock of [packageName], starting its grace period. */
     fun grant(packageName: String) {
+        authenticated = packageName
         deadlines[packageName] = clock() + graceMillis()
+    }
+
+    /**
+     * True while [packageName] is the app the user just authenticated for.
+     *
+     * Calling this for any other package clears the record, so returning to the
+     * original app later is gated normally. Callers must ask on every foreground
+     * event, not just when they intend to gate.
+     */
+    fun isAuthenticatedAndPresent(packageName: String): Boolean {
+        if (authenticated == packageName) return true
+        authenticated = null
+        return false
     }
 
     /** True when [packageName] is inside its grace period right now. */
