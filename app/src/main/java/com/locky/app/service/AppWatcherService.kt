@@ -170,10 +170,7 @@ class AppWatcherService : AccessibilityService() {
 
         // Never gate our own windows: the overlay changing state would otherwise
         // re-trigger itself in a loop.
-        if (packageName == this.packageName) {
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.OWN_WINDOW)
-            return
-        }
+        if (packageName == this.packageName) return
 
         // Foreground events raised while the biometric prompt is on screen belong
         // to the prompt or to Locky's own transparent host, not to the user
@@ -182,10 +179,7 @@ class AppWatcherService : AccessibilityService() {
         // moment the prompt appears — leaving them in an unlocked app the moment
         // they cancel. Ignored before anything else, including the latch below,
         // so the prompt closing cannot be mistaken for leaving the app.
-        if (biometricInFlight.get()) {
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.PROMPT_ON_SCREEN)
-            return
-        }
+        if (biometricInFlight.get()) return
 
         // Asked about every foreground event, not only the protected ones.
         //
@@ -201,7 +195,6 @@ class AppWatcherService : AccessibilityService() {
         // would never be gated again, whatever the re-lock setting says.
         if (unlockState.isAuthenticatedAndPresent(packageName)) {
             Log.i(TAG, "$packageName is the app just authenticated for; not gating again")
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.JUST_AUTHENTICATED)
             return
         }
 
@@ -209,7 +202,6 @@ class AppWatcherService : AccessibilityService() {
         val window = overlay
 
         if (target == null) {
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.NOT_PROTECTED)
             // Nothing to gate. This is the normal case for the launcher, the
             // shade, and Settings, but it is also what happens when the cache is
             // empty and every app looks unprotected, so it is worth counting.
@@ -247,7 +239,6 @@ class AppWatcherService : AccessibilityService() {
 
         if (unlockState.isUnlocked(packageName)) {
             Log.i(TAG, "$packageName already unlocked, letting it through")
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.WITHIN_GRACE)
             // This app is inside its grace period, so nothing should be covering
             // it. Reaching here with the overlay up means it is still showing for
             // a different app, and the user would be stuck staring at that app's
@@ -263,14 +254,10 @@ class AppWatcherService : AccessibilityService() {
         // than stacking a second challenge.
         if (window?.isShowing == true) {
             window.show(target.packageName, target.label)
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.RETITLED)
             return
         }
 
-        if (!claimChallenge()) {
-            LockyRuntime.onGateDecision(LockyRuntime.GateDecision.ALREADY_GATED)
-            return
-        }
+        if (!claimChallenge()) return
 
         // Re-checked here rather than reusing `window`, because the overlay
         // permission can be granted while the service is already running. Doing
@@ -287,7 +274,6 @@ class AppWatcherService : AccessibilityService() {
             // still locked, accepting the slower transition.
             launchFallback(target)
         }
-        LockyRuntime.onGateDecision(LockyRuntime.GateDecision.GATED)
     }
 
     /**

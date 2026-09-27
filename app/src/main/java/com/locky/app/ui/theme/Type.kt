@@ -40,3 +40,18 @@ val LockyTypography = Typography(
         lineHeight = 16.sp,
     ),
 )
+
+/**
+ * Wide-tracked uppercase, for the one-line label above a title.
+ *
+ * Not part of the Material scale because it is a device for a single idea: it
+ * reads as a quiet eyebrow over the app name rather than competing with the
+ * headline underneath it. The tracking is what carries it — at this size,
+ * uppercase alone just looks like shouting in a small font.
+ */
+val EyebrowStyle = TextStyle(
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 11.sp,
+    lineHeight = 14.sp,
+    letterSpacing = 3.sp,
+)

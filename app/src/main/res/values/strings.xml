@@ -67,15 +67,6 @@
     <string name="diag_unavailable">Using full screen</string>
     <string name="diag_last_seen">Last app seen: %1$s</string>
     <string name="diag_enabled_services">Android has enabled: %1$s</string>
-    <string name="diag_last_result">Last result</string>
-    <string name="diag_decision_gated">LOCKED (lock raised)</string>
-    <string name="diag_decision_own_window">skipped · Locky\'s own window</string>
-    <string name="diag_decision_prompt">skipped · fingerprint prompt was open</string>
-    <string name="diag_decision_just_authenticated">skipped · just unlocked, not left since</string>
-    <string name="diag_decision_not_protected">skipped · not in the protected list</string>
-    <string name="diag_decision_within_grace">skipped · still inside its grace period</string>
-    <string name="diag_decision_retitled">LOCKED (retitled an open lock)</string>
-    <string name="diag_decision_already_gated">BLOCKED · another lock was already up</string>
     <string name="diag_tests_help">These two show the PIN screen without opening an app, so they test the lock itself rather than app detection.</string>
     <string name="diag_test_overlay">Test instant lock</string>
     <string name="diag_test_full_screen">Test full-screen lock</string>

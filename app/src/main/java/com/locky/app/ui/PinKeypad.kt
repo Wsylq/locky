@@ -1,6 +1,7 @@
 package com.locky.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.locky.app.ui.theme.AccentBlue
+import com.locky.app.ui.theme.GlassFill
+import com.locky.app.ui.theme.GlassOutline
 
 private val KEYS = listOf(
     "1", "2", "3",
@@ -45,20 +49,27 @@ fun PinDots(
     val description = "PIN, $length of $maxLength digits entered"
     Row(
         modifier = modifier.clearAndSetSemantics { contentDescription = description },
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(maxLength) { index ->
+            // Outlined until filled, rather than two solid circles. A filled grey
+            // dot and a filled accent dot are hard to tell apart at a glance on a
+            // dark screen; an empty ring reads unambiguously as "not yet".
             val filled = index < length
             Box(
                 modifier = Modifier
-                    .size(14.dp)
+                    .size(15.dp)
                     .clip(CircleShape)
-                    .background(
+                    .then(
                         if (filled) {
-                            MaterialTheme.colorScheme.primary
+                            Modifier.background(AccentBlue)
                         } else {
-                            MaterialTheme.colorScheme.surfaceVariant
+                            Modifier.border(
+                                width = 1.5.dp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f),
+                                shape = CircleShape,
+                            )
                         },
                     ),
             )
@@ -128,8 +139,13 @@ private fun KeypadKey(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clip(RoundedCornerShape(22.dp))
+            // Translucent with a hairline edge, so a key reads as a pane of glass
+            // lit from behind rather than a grey tile painted on the background.
+            // The alpha is relative to the theme's on-surface colour, so this
+            // stays correct if the dark palette is ever retuned.
+            .background(GlassFill)
+            .border(1.dp, GlassOutline, RoundedCornerShape(22.dp))
             .clickable(onClick = onClick)
             .clearAndSetSemantics { contentDescription = onClickLabel },
         contentAlignment = Alignment.Center,
@@ -139,11 +155,13 @@ private fun KeypadKey(
                 imageVector = LockyIcons.Backspace,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
             Text(
                 text = label,
                 style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(vertical = 12.dp),
             )

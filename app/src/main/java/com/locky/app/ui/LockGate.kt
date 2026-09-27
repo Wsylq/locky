@@ -1,15 +1,23 @@
 package com.locky.app.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +33,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +44,14 @@ import com.locky.app.LockyApp
 import com.locky.app.R
 import com.locky.app.security.AttemptLimiter
 import com.locky.app.security.BiometricUnlock
+import com.locky.app.ui.theme.AccentBlue
+import com.locky.app.ui.theme.AccentGlow
+import com.locky.app.ui.theme.AccentGlassFill
+import com.locky.app.ui.theme.AccentOutline
+import com.locky.app.ui.theme.DarkBackground
+import com.locky.app.ui.theme.DarkOnSurfaceVariant
+import com.locky.app.ui.theme.DarkSurface
+import com.locky.app.ui.theme.EyebrowStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -226,107 +245,155 @@ fun PinEntryScreen(
     onSubmit: () -> Unit,
     onUseBiometrics: () -> Unit,
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 28.dp, vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = LockyIcons.Lock,
-            contentDescription = null,
-            modifier = Modifier.size(40.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            // "Enter your PIN" would be the wrong headline when the fingerprint is
-            // the intended way in and the keypad is the fallback.
-            text = stringResource(
-                if (biometricsAvailable) R.string.lock_title else R.string.pin_prompt_title,
+            // A vertical wash rather than one flat fill. Lighter at the top where
+            // the badge and the title sit, so the screen has a light source and
+            // the eye lands on the app name first.
+            .background(
+                Brush.verticalGradient(
+                    0f to DarkSurface,
+                    0.6f to DarkBackground,
+                    1f to DarkBackground,
+                ),
             ),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-
-        Spacer(Modifier.height(4.dp))
-
-        Text(
-            text = appLabel,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-
-        // Biometrics first and filled, above the dots: the primary way through this
-        // screen. The keypad stays below it as the fallback for a failed or
-        // cancelled prompt, and a cool-out.
-        if (biometricsAvailable) {
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = onUseBiometrics,
-                enabled = !isBusy && !isLockedOut,
-                modifier = Modifier.fillMaxWidth(0.8f),
-            ) {
-                Icon(
-                    imageVector = LockyIcons.Fingerprint,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.size(10.dp))
-                Text(stringResource(R.string.action_use_biometrics))
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        PinDots(length = pin.length, maxLength = MAX_PIN_LENGTH)
-
-        Spacer(Modifier.height(12.dp))
-
-        // Reserve the row so the keypad does not jump when an error appears.
+    ) {
+        // A single soft accent bloom behind the badge, fading to nothing. Carries
+        // most of the "premium" impression and costs one draw: a flat dark screen
+        // reads as an unfinished dark mode, this reads as a lit surface.
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            when {
-                isBusy -> CircularProgressIndicator(modifier = Modifier.size(20.dp))
-
-                errorMessage != null -> Text(
-                    text = errorMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                )
-
-                else -> Text(
-                    text = remainingAttempts.toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        PinKeypad(
-            onDigit = onDigit,
-            onBackspace = onBackspace,
-            modifier = Modifier.fillMaxWidth(0.9f),
+                .align(Alignment.TopCenter)
+                .size(600.dp)
+                .offset(y = (-240).dp)
+                .background(
+                    Brush.radialGradient(listOf(AccentGlow, Color.Transparent)),
+                ),
         )
 
-        Spacer(Modifier.height(12.dp))
-
-        TextButton(
-            onClick = onSubmit,
-            enabled = !isBusy && pin.length >= MIN_PIN_LENGTH && !isLockedOut,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(stringResource(R.string.action_unlock))
+            // The lock in a tinted disc rather than floating on its own, so it
+            // reads as a badge and not as a stray icon.
+            Box(
+                modifier = Modifier
+                    .size(78.dp)
+                    .clip(CircleShape)
+                    .background(AccentGlassFill)
+                    .border(1.dp, AccentOutline, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = LockyIcons.Lock,
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                    tint = AccentBlue,
+                )
+            }
+
+            Spacer(Modifier.height(26.dp))
+
+            // Small, wide-tracked and quiet, with the app name given the weight
+            // instead. "Enter your PIN" as a headline would be wrong here: the
+            // fingerprint is the intended way in and the keypad is the fallback.
+            Text(
+                text = stringResource(R.string.lock_title).uppercase(),
+                style = EyebrowStyle,
+                color = AccentBlue,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = appLabel,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+
+            // Biometrics first, above the dots: the primary way through this
+            // screen. The keypad stays below it as the fallback for a failed or
+            // cancelled prompt, and a cool-out.
+            if (biometricsAvailable) {
+                Spacer(Modifier.height(28.dp))
+
+                Button(
+                    onClick = onUseBiometrics,
+                    enabled = !isBusy && !isLockedOut,
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, AccentOutline),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentGlassFill,
+                        contentColor = AccentBlue,
+                        disabledContainerColor = AccentGlassFill.copy(alpha = 0.3f),
+                        disabledContentColor = DarkOnSurfaceVariant,
+                    ),
+                    contentPadding = PaddingValues(vertical = 14.dp),
+                    modifier = Modifier.fillMaxWidth(0.86f),
+                ) {
+                    Icon(
+                        imageVector = LockyIcons.Fingerprint,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.size(10.dp))
+                    Text(stringResource(R.string.action_use_biometrics))
+                }
+            }
+
+            Spacer(Modifier.height(30.dp))
+
+            PinDots(length = pin.length, maxLength = MAX_PIN_LENGTH)
+
+            Spacer(Modifier.height(12.dp))
+
+            // Reserve the row so the keypad does not jump when an error appears.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    isBusy -> CircularProgressIndicator(modifier = Modifier.size(20.dp))
+
+                    errorMessage != null -> Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                    )
+
+                    else -> Text(
+                        text = remainingAttempts.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            PinKeypad(
+                onDigit = onDigit,
+                onBackspace = onBackspace,
+                modifier = Modifier.fillMaxWidth(0.92f),
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            TextButton(
+                onClick = onSubmit,
+                enabled = !isBusy && pin.length >= MIN_PIN_LENGTH && !isLockedOut,
+            ) {
+                Text(stringResource(R.string.action_unlock))
+            }
         }
     }
 }

@@ -96,15 +96,6 @@ fun DiagnosticsPanel(
                 isGood = runtime.foregroundEventCount > 0,
             )
 
-            // The only line here that states what Locky *did*, rather than what it
-            // can see. Read together with the package above it, this answers "why
-            // did that app not lock" without inferring anything from counts.
-            StatusLine(
-                label = stringResource(R.string.diag_last_result),
-                value = runtime.lastDecision?.let { stringResource(it.labelRes()) } ?: "—",
-                isGood = runtime.lastDecision == LockyRuntime.GateDecision.GATED,
-            )
-
             StatusLine(
                 label = stringResource(R.string.diag_overlay),
                 value = stringResource(
@@ -198,25 +189,6 @@ fun DiagnosticsPanel(
             }
         }
     }
-}
-
-/**
- * Wording for each gate decision.
- *
- * Kept out of [LockyRuntime] so the service carries no user-facing text, and kept
- * here as one exhaustive expression so a new decision cannot be added without
- * being given a label — an unlabelled one would render as a blank line, which is
- * the one thing this diagnostic must never do.
- */
-private fun LockyRuntime.GateDecision.labelRes(): Int = when (this) {
-    LockyRuntime.GateDecision.GATED -> R.string.diag_decision_gated
-    LockyRuntime.GateDecision.OWN_WINDOW -> R.string.diag_decision_own_window
-    LockyRuntime.GateDecision.PROMPT_ON_SCREEN -> R.string.diag_decision_prompt
-    LockyRuntime.GateDecision.JUST_AUTHENTICATED -> R.string.diag_decision_just_authenticated
-    LockyRuntime.GateDecision.NOT_PROTECTED -> R.string.diag_decision_not_protected
-    LockyRuntime.GateDecision.WITHIN_GRACE -> R.string.diag_decision_within_grace
-    LockyRuntime.GateDecision.RETITLED -> R.string.diag_decision_retitled
-    LockyRuntime.GateDecision.ALREADY_GATED -> R.string.diag_decision_already_gated
 }
 
 @Composable
